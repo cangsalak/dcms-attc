@@ -115,16 +115,42 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
     // Column already exists
   }
 
-  // 4. Folders table (Hierarchical Directory System)
+  // 4. Folders table (Hierarchical Directory System with Access Permissions)
   const createFoldersSql = `CREATE TABLE IF NOT EXISTS folders (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     parent_id VARCHAR(64) DEFAULT 'root',
+    owner_id VARCHAR(64),
+    access_type VARCHAR(32) DEFAULT 'public',
+    allowed_roles TEXT DEFAULT '["Super Admin","Admin","Manager","Member"]',
+    allowed_users TEXT DEFAULT '[]',
+    department VARCHAR(128) DEFAULT '',
+    permission_level VARCHAR(32) DEFAULT 'read_write',
     created_by VARCHAR(64),
     created_at ${isPostgres ? "TIMESTAMPTZ DEFAULT NOW()" : "DATETIME DEFAULT CURRENT_TIMESTAMP"}
   );`;
 
   await db.execute(createFoldersSql);
+
+  // Migration for folders table permissions
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN owner_id VARCHAR(64)");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN access_type VARCHAR(32) DEFAULT 'public'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN allowed_roles TEXT DEFAULT '[\"Super Admin\",\"Admin\",\"Manager\",\"Member\"]'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN allowed_users TEXT DEFAULT '[]'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN department VARCHAR(128) DEFAULT ''");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN permission_level VARCHAR(32) DEFAULT 'read_write'");
+  } catch {}
 
   // Seed default admin user if empty
   const countUsers = await db.query<{ count: number | string }>(

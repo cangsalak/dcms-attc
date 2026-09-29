@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { ensureDatabaseReady } from "@/core/database";
-import { cookies } from "next/headers";
+import { getSessionUser, checkFolderPermission } from "@/core/lib/auth";
 
 export async function GET(req: Request) {
   try {
@@ -10,7 +10,22 @@ export async function GET(req: Request) {
     const folderId = searchParams.get("folderId");
     const category = searchParams.get("category");
 
+    const sessionUser = await getSessionUser();
     const db = await ensureDatabaseReady();
+
+    // If specific folder requested (not root and not all), verify read permission
+    if (folderId && folderId !== "all" && folderId !== "root") {
+      const folderRows = await db.query(`SELECT * FROM folders WHERE id = ?`, [folderId]);
+      if (folderRows.length > 0) {
+        const perm = checkFolderPermission(folderRows[0], sessionUser);
+        if (!perm.canRead) {
+          return NextResponse.json(
+            { error: "คุณไม่มีสิทธิ์เข้าถึงโฟลเดอร์นี้", files: [] },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     let sql = `SELECT id, filename, original_name as "originalName", mime_type as "mimeType", 
                       size_bytes as "sizeBytes", url, folder_id as "folderId", 
@@ -26,7 +41,22 @@ export async function GET(req: Request) {
     sql += ` ORDER BY uploaded_at DESC`;
 
     const rows = await db.query(sql, params);
-    return NextResponse.json({ files: rows });
+
+    // If "all" was requested, filter out files in folders that the user cannot read
+    let allowedRows = rows;
+    if (folderId === "all" && sessionUser?.role !== "Super Admin" && sessionUser?.role !== "Admin") {
+      const allFolders = await db.query(`SELECT * FROM folders`);
+      const folderPermMap = new Map<string, boolean>();
+      for (const f of allFolders) {
+        folderPermMap.set(f.id, checkFolderPermission(f, sessionUser).canRead);
+      }
+      allowedRows = rows.filter((r: any) => {
+        if (!r.folderId || r.folderId === "root") return true;
+        return folderPermMap.get(r.folderId) ?? true;
+      });
+    }
+
+    return NextResponse.json({ files: allowedRows });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -38,6 +68,23 @@ export async function POST(req: Request) {
     const uploadedFiles = formData.getAll("files") as File[];
     const singleFile = formData.get("file") as File | null;
     const folderId = (formData.get("folderId") as string) || "root";
+
+    const sessionUser = await getSessionUser();
+    const db = await ensureDatabaseReady();
+
+    // Check folder write permissions
+    if (folderId && folderId !== "root") {
+      const folderRows = await db.query(`SELECT * FROM folders WHERE id = ?`, [folderId]);
+      if (folderRows.length > 0) {
+        const perm = checkFolderPermission(folderRows[0], sessionUser);
+        if (!perm.canWrite) {
+          return NextResponse.json(
+            { error: "คุณไม่มีสิทธิ์อัปโหลดไฟล์ในโฟลเดอร์นี้ (สิทธิ์เปิดให้อ่านอย่างเดียว หรือไม่มีสิทธิ์การเข้าถึง)" },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     const filesToProcess: File[] = [];
     if (uploadedFiles && uploadedFiles.length > 0) {
@@ -53,23 +100,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get current user from session cookie
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("dcms_session");
-    let uploaderName = "Admin";
-    if (sessionCookie?.value) {
-      try {
-        const session = JSON.parse(sessionCookie.value);
-        if (session.name) uploaderName = session.name;
-      } catch {}
-    }
+    const uploaderName = sessionUser?.name || "Admin";
 
     const uploadDir = path.join(process.cwd(), "public", "uploads");
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const db = await ensureDatabaseReady();
     const savedRecords = [];
 
     for (const file of filesToProcess) {
@@ -131,25 +168,40 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Missing file id" }, { status: 400 });
     }
 
+    const sessionUser = await getSessionUser();
     const db = await ensureDatabaseReady();
-    const rows = await db.query<{ filename: string }>(
-      "SELECT filename FROM files WHERE id = ?",
+    const rows = await db.query<{ filename: string; folder_id: string; uploaded_by: string }>(
+      "SELECT filename, folder_id, uploaded_by FROM files WHERE id = ?",
       [id]
     );
 
     if (rows.length > 0) {
-      const filename = rows[0].filename;
-      const filePath = path.join(process.cwd(), "public", "uploads", filename);
+      const file = rows[0];
+
+      // Check permission on parent folder
+      if (file.folder_id && file.folder_id !== "root") {
+        const folderRows = await db.query(`SELECT * FROM folders WHERE id = ?`, [file.folder_id]);
+        if (folderRows.length > 0) {
+          const perm = checkFolderPermission(folderRows[0], sessionUser);
+          const isUploader = sessionUser?.name && file.uploaded_by === sessionUser.name;
+          if (!perm.canWrite && !isUploader && sessionUser?.role !== "Super Admin" && sessionUser?.role !== "Admin") {
+            return NextResponse.json(
+              { error: "คุณไม่มีสิทธิ์ลบไฟล์ในโฟลเดอร์นี้" },
+              { status: 403 }
+            );
+          }
+        }
+      }
+
+      const filePath = path.join(process.cwd(), "public", "uploads", file.filename);
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error("Failed to delete physical file:", e);
-        }
+        } catch {}
       }
-    }
 
-    await db.execute("DELETE FROM files WHERE id = ?", [id]);
+      await db.execute("DELETE FROM files WHERE id = ?", [id]);
+    }
 
     return NextResponse.json({ success: true, deletedId: id });
   } catch (err: any) {
