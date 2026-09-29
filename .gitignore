@@ -40,6 +40,12 @@ data/
 *.sqlite*
 *.db
 
+# uploaded files
+uploads/
+public/uploads/
+!public/uploads/.gitkeep
+
+
 
 # vercel
 .vercel

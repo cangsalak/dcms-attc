@@ -93,6 +93,20 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
 
   await db.execute(createModulesSql);
 
+  // 3. Files & Uploads table
+  const createFilesSql = `CREATE TABLE IF NOT EXISTS files (
+    id VARCHAR(64) PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(128) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    url TEXT NOT NULL,
+    uploaded_by VARCHAR(64),
+    uploaded_at ${isPostgres ? "TIMESTAMPTZ DEFAULT NOW()" : "DATETIME DEFAULT CURRENT_TIMESTAMP"}
+  );`;
+
+  await db.execute(createFilesSql);
+
   // Seed default admin user if empty
   const countUsers = await db.query<{ count: number | string }>(
     `SELECT COUNT(*) as count FROM users`

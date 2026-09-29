@@ -2,6 +2,7 @@ import { AppModule } from "../types/module";
 import { usersModule } from "@/modules/users/module.config";
 import { appStoreModule } from "@/modules/app-store/module.config";
 import { settingsModule } from "@/modules/settings/module.config";
+import { filesModule } from "@/modules/files/module.config";
 
 /**
  * Core Module Registry
@@ -11,6 +12,7 @@ import { settingsModule } from "@/modules/settings/module.config";
 export const defaultModules: AppModule[] = [
   appStoreModule,
   usersModule,
+  filesModule,
   settingsModule,
 ];
 
