@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import { useWindowManager } from "../context/WindowManagerContext";
 import { DynamicIcon } from "./IconResolver";
 import { WindowFrame } from "./WindowFrame";
-import { Sparkles, RefreshCw, Image, LayoutGrid } from "lucide-react";
+import { SynologyWidgets } from "./SynologyWidgets";
+import { SynologyAppLauncher } from "./SynologyAppLauncher";
+import { RefreshCw, Image, LayoutGrid, Activity } from "lucide-react";
 
 export function DesktopSurface() {
   const {
@@ -13,7 +15,8 @@ export function DesktopSurface() {
     openApp,
     wallpaper,
     language,
-    setWallpaper,
+    toggleWidgets,
+    setLauncherOpen,
   } = useWindowManager();
 
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
@@ -45,7 +48,6 @@ export function DesktopSurface() {
     }
   };
 
-  // Wallpaper backgrounds mapping
   const wallpaperClass =
     wallpaper === "cyber-blue"
       ? "from-[#080e22] via-[#0d1e3d] to-[#040817]"
@@ -59,11 +61,11 @@ export function DesktopSurface() {
     <div
       onClick={handleDesktopClick}
       onContextMenu={handleContextMenu}
-      className={`relative w-full h-[calc(100vh-28px)] overflow-hidden bg-gradient-to-b ${wallpaperClass} transition-colors duration-500`}
+      className={`relative w-full h-[calc(100vh-32px)] overflow-hidden bg-gradient-to-b ${wallpaperClass} transition-colors duration-500`}
     >
       {/* Abstract Curved Wave Lines */}
       <svg
-        className="absolute inset-0 w-full h-full pointer-events-none opacity-40"
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-30"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 1440 900"
         preserveAspectRatio="none"
@@ -104,8 +106,8 @@ export function DesktopSurface() {
       {/* Subtle radial glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Desktop App Icons on the Right Side (matching user screenshot layout) */}
-      <div className="absolute top-8 right-8 flex flex-col gap-6 z-10 select-none">
+      {/* Desktop App Shortcuts (Synology DSM layout: Left Side column) */}
+      <div className="absolute top-6 left-6 flex flex-col flex-wrap gap-5 max-h-[calc(100vh-120px)] z-10 select-none">
         {desktopModules.map((mod) => {
           const isSelected = selectedAppId === mod.id;
           const title = language === "th" && mod.nameTh ? mod.nameTh : mod.name;
@@ -121,10 +123,10 @@ export function DesktopSurface() {
                 e.stopPropagation();
                 openApp(mod.id);
               }}
-              className={`flex flex-col items-center group cursor-pointer p-2 rounded-2xl transition-all ${
+              className={`flex flex-col items-center group cursor-pointer p-2 rounded-2xl transition-all w-24 ${
                 isSelected
                   ? "bg-white/15 ring-1 ring-white/30 backdrop-blur-md shadow-lg"
-                  : "hover:bg-white/5"
+                  : "hover:bg-white/10"
               }`}
             >
               <div
@@ -132,13 +134,19 @@ export function DesktopSurface() {
               >
                 <DynamicIcon name={mod.iconName} className="w-7 h-7 text-white drop-shadow" />
               </div>
-              <span className="mt-1.5 text-xs font-medium text-slate-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-tight text-center max-w-[80px] line-clamp-1">
+              <span className="mt-1.5 text-xs font-medium text-slate-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-tight text-center w-full line-clamp-1">
                 {title}
               </span>
             </div>
           );
         })}
       </div>
+
+      {/* Synology DSM Floating Widgets (Right side) */}
+      <SynologyWidgets />
+
+      {/* Synology Full App Launcher */}
+      <SynologyAppLauncher />
 
       {/* Render All Open Windows */}
       {windows.map((win) => (
@@ -149,18 +157,28 @@ export function DesktopSurface() {
       {contextMenu.visible && (
         <div
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed glass-panel rounded-xl py-1 text-xs text-slate-200 shadow-2xl z-50 w-52 animate-in fade-in zoom-in-95 duration-75 select-none"
+          className="fixed glass-panel rounded-xl py-1 text-xs text-slate-200 shadow-2xl z-50 w-56 animate-in fade-in zoom-in-95 duration-75 select-none"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => {
-              openApp("app-store");
+              setLauncherOpen(true);
               setContextMenu({ ...contextMenu, visible: false });
             }}
             className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
-            <span>ศูนย์ติดตั้งโมดูล (App Store)</span>
+            <span>เปิดเมนูหลัก (Main Menu)</span>
+          </button>
+          <button
+            onClick={() => {
+              toggleWidgets();
+              setContextMenu({ ...contextMenu, visible: false });
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>เปิด/ปิด วิดเจ็ตระบบ (Widgets)</span>
           </button>
           <button
             onClick={() => {

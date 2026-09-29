@@ -12,6 +12,11 @@ interface WindowManagerContextType {
   wallpaper: string;
   language: "th" | "en";
   dateFormatConfig: DateFormatConfig;
+  isWidgetsOpen: boolean;
+  isLauncherOpen: boolean;
+  toggleWidgets: () => void;
+  setLauncherOpen: (open: boolean) => void;
+  minimizeAll: () => void;
   setWallpaper: (wp: string) => void;
   setLanguage: (lang: "th" | "en") => void;
   setDateFormatConfig: (config: Partial<DateFormatConfig>) => void;
@@ -35,7 +40,17 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
   const [wallpaper, setWallpaperState] = useState<string>("dcms-purple");
   const [language, setLanguageState] = useState<"th" | "en">("th");
   const [dateFormatConfig, setDateFormatState] = useState<DateFormatConfig>(defaultDateConfig);
+  const [isWidgetsOpen, setIsWidgetsOpen] = useState<boolean>(true);
+  const [isLauncherOpen, setIsLauncherOpen] = useState<boolean>(false);
   const [maxZIndex, setMaxZIndex] = useState<number>(100);
+
+  const toggleWidgets = () => setIsWidgetsOpen((prev) => !prev);
+  const setLauncherOpen = (open: boolean) => setIsLauncherOpen(open);
+
+  const minimizeAll = useCallback(() => {
+    setWindows((prev) => prev.map((w) => ({ ...w, isMinimized: true })));
+    setActiveWindowId(null);
+  }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -218,6 +233,11 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         wallpaper,
         language,
         dateFormatConfig,
+        isWidgetsOpen,
+        isLauncherOpen,
+        toggleWidgets,
+        setLauncherOpen,
+        minimizeAll,
         setWallpaper,
         setLanguage,
         setDateFormatConfig,

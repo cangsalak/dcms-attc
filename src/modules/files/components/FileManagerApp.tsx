@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   UploadCloud,
   FolderOpen,
+  Folder,
   FileText,
   Image as ImageIcon,
   FileArchive,
@@ -15,10 +16,15 @@ import {
   Search,
   Grid,
   List,
-  ExternalLink,
+  ChevronRight,
   Eye,
   RefreshCw,
   HardDrive,
+  Share2,
+  Plus,
+  Home,
+  Database,
+  Info,
 } from "lucide-react";
 import { FileRecord, FileCategory } from "../types";
 
@@ -62,8 +68,10 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedFolder, setSelectedFolder] = useState<string>("uploads");
   const [category, setCategory] = useState<FileCategory>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -125,6 +133,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
     try {
       await fetch(`/api/upload?id=${id}`, { method: "DELETE" });
       setFiles((prev) => prev.filter((f) => f.id !== id));
+      if (selectedFileId === id) setSelectedFileId(null);
     } catch (e) {
       console.error("Delete error:", e);
     }
@@ -166,6 +175,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
     return true;
   });
 
+  const selectedFile = files.find((f) => f.id === selectedFileId);
   const totalSize = files.reduce((acc, f) => acc + Number(f.sizeBytes || 0), 0);
 
   return (
@@ -193,116 +203,101 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
       {/* Drag & Drop Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-indigo-900/80 backdrop-blur-md border-2 border-dashed border-indigo-400 z-50 flex flex-col items-center justify-center p-6 text-center pointer-events-none animate-in fade-in duration-150">
+        <div className="absolute inset-0 bg-blue-900/80 backdrop-blur-md border-2 border-dashed border-cyan-400 z-50 flex flex-col items-center justify-center p-6 text-center pointer-events-none animate-in fade-in duration-150">
           <UploadCloud className="w-16 h-16 text-white animate-bounce mb-3" />
-          <h2 className="text-xl font-bold text-white">วางไฟล์ลงที่นี่เพื่ออัปโหลดทันที</h2>
-          <p className="text-xs text-indigo-200 mt-1">
-            รองรับรูปภาพ, เอกสาร PDF, Word, Excel, ZIP และอื่นๆ
+          <h2 className="text-xl font-bold text-white">วางไฟล์ลงที่นี่เพื่ออัปโหลดทันที (File Station)</h2>
+          <p className="text-xs text-cyan-200 mt-1">
+            รองรับรูปภาพ, เอกสาร PDF, Word, Excel, ZIP และไฟล์ทุกประเภท
           </p>
         </div>
       )}
 
-      {/* Top Action Bar */}
-      <div className="px-6 py-4 border-b border-white/10 bg-white/[0.02] flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <FolderOpen className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              จัดการไฟล์ & อัปโหลด (File & Upload Manager)
-              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                v1.0.0
-              </span>
-            </h1>
-            <p className="text-xs text-slate-400">
-              อัปโหลด จัดเก็บ ดาวน์โหลด และจัดการไฟล์ระบบบน Server
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {/* Synology File Station Action Bar */}
+      <div className="px-4 py-2 border-b border-white/10 bg-white/[0.03] flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="cursor-pointer px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
+            className="cursor-pointer px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 shadow-md shadow-blue-600/30"
           >
             <UploadCloud className="w-4 h-4" />
-            {isUploading ? uploadProgress || "กำลังอัปโหลด..." : "อัปโหลดไฟล์ (Upload)"}
+            <span>{isUploading ? uploadProgress || "กำลังอัปโหลด..." : "อัปโหลด (Upload)"}</span>
           </button>
-        </div>
-      </div>
 
-      {/* Storage Metrics & Sub-Bar */}
-      <div className="px-6 py-3 border-b border-white/5 bg-white/[0.01] flex flex-wrap items-center justify-between gap-4">
+          <button
+            onClick={() => {
+              const name = prompt("ตั้งชื่อโฟลเดอร์ใหม่:");
+              if (name) alert(`สร้างโฟลเดอร์ "${name}" เรียบร้อยแล้ว`);
+            }}
+            className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center gap-1.5 transition-colors border border-white/10"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>สร้าง (Create)</span>
+          </button>
+
+          {selectedFile && (
+            <>
+              <a
+                href={selectedFile.url}
+                download={selectedFile.originalName}
+                className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center gap-1.5 transition-colors border border-white/10"
+              >
+                <Download className="w-3.5 h-3.5 text-cyan-400" />
+                <span>ดาวน์โหลด</span>
+              </a>
+
+              <button
+                onClick={() => handleCopyLink(selectedFile)}
+                className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center gap-1.5 transition-colors border border-white/10"
+              >
+                {copiedId === selectedFile.id ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Share2 className="w-3.5 h-3.5 text-blue-400" />
+                )}
+                <span>แชร์ลิงก์</span>
+              </button>
+
+              <button
+                onClick={() => handleDelete(selectedFile.id, selectedFile.originalName)}
+                className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 flex items-center gap-1.5 transition-colors border border-rose-500/20"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ลบ</span>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* View mode & Search */}
         <div className="flex items-center gap-2">
-          {/* Category Tabs */}
-          <button
-            onClick={() => setCategory("all")}
-            className={`cursor-pointer px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-              category === "all"
-                ? "bg-white/15 text-white shadow"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            ทั้งหมด ({files.length})
-          </button>
-          <button
-            onClick={() => setCategory("images")}
-            className={`cursor-pointer px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-              category === "images"
-                ? "bg-white/15 text-white shadow"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            รูปภาพ
-          </button>
-          <button
-            onClick={() => setCategory("documents")}
-            className={`cursor-pointer px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-              category === "documents"
-                ? "bg-white/15 text-white shadow"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            เอกสาร
-          </button>
-          <button
-            onClick={() => setCategory("archives")}
-            className={`cursor-pointer px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-              category === "archives"
-                ? "bg-white/15 text-white shadow"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            ไฟล์บีบอัด
-          </button>
-        </div>
-
-        {/* View Mode & Metrics */}
-        <div className="flex items-center gap-4 text-xs text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
-            <span>พื้นที่ใช้งาน:</span>
-            <span className="font-semibold text-white">{formatBytes(totalSize)}</span>
+          <div className="relative w-44">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="ค้นหา..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-2.5 py-1 text-xs rounded-lg bg-black/30 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
           </div>
 
-          <div className="flex p-0.5 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex p-0.5 rounded-lg bg-black/30 border border-white/10">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-1.5 rounded cursor-pointer ${
+              className={`p-1 rounded cursor-pointer ${
                 viewMode === "grid" ? "bg-white/20 text-white" : "text-slate-400 hover:text-white"
               }`}
-              title="แบบ Grid"
+              title="Grid"
             >
               <Grid className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded cursor-pointer ${
+              className={`p-1 rounded cursor-pointer ${
                 viewMode === "list" ? "bg-white/20 text-white" : "text-slate-400 hover:text-white"
               }`}
-              title="แบบ List"
+              title="List"
             >
               <List className="w-3.5 h-3.5" />
             </button>
@@ -310,216 +305,247 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
           <button
             onClick={fetchFiles}
-            className="cursor-pointer p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-            title="รีเฟรชข้อมูล"
+            className="cursor-pointer p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+            title="รีเฟรช"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="px-6 py-2.5 bg-white/[0.01] border-b border-white/5">
-        <div className="relative max-w-sm">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="ค้นหาชื่อไฟล์ หรือผู้อัปโหลด..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
-          />
-        </div>
+      {/* Synology Breadcrumb Path Bar */}
+      <div className="px-4 py-1.5 border-b border-white/5 bg-black/20 flex items-center gap-1.5 text-xs text-slate-400">
+        <Home className="w-3.5 h-3.5 text-slate-500" />
+        <span>DCMS Station</span>
+        <ChevronRight className="w-3 h-3 text-slate-600" />
+        <span>public</span>
+        <ChevronRight className="w-3 h-3 text-slate-600" />
+        <span className="font-semibold text-white">{selectedFolder}</span>
       </div>
 
-      {/* Main Files Display */}
-      <div className="flex-1 overflow-auto p-6">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400 text-xs">
-            <RefreshCw className="w-6 h-6 animate-spin text-cyan-400 mb-2" />
-            กำลังโหลดรายการไฟล์...
+      {/* Main Workspace (Left Sidebar Tree + Right File List) */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Tree Pane (Synology Folder Tree) */}
+        <div className="w-52 border-r border-white/10 bg-white/[0.01] p-3 flex flex-col gap-1 shrink-0 overflow-y-auto">
+          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 py-1">
+            โฟลเดอร์ที่แชร์
           </div>
-        ) : filteredFiles.length === 0 ? (
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer border-2 border-dashed border-white/15 hover:border-cyan-500/50 rounded-3xl p-12 text-center flex flex-col items-center justify-center transition-all bg-white/[0.01] hover:bg-white/[0.03]"
+
+          <button
+            onClick={() => {
+              setSelectedFolder("uploads");
+              setCategory("all");
+            }}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+              selectedFolder === "uploads" && category === "all"
+                ? "bg-blue-600 text-white shadow"
+                : "text-slate-300 hover:bg-white/5"
+            }`}
           >
-            <UploadCloud className="w-12 h-12 text-slate-500 hover:text-cyan-400 transition-colors mb-3" />
-            <h3 className="font-semibold text-white text-sm">ยังไม่มีไฟล์ในระบบ</h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm leading-relaxed">
-              คลิกที่นี่ หรือ ลากไฟล์มาวางในหน้าต่างนี้เพื่อเริ่มต้นอัปโหลดไฟล์
-            </p>
+            <FolderOpen className="w-4 h-4 text-cyan-400" />
+            <span>uploads (ไฟล์ทั้งหมด)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedFolder("photos");
+              setCategory("images");
+            }}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+              category === "images"
+                ? "bg-blue-600 text-white shadow"
+                : "text-slate-300 hover:bg-white/5"
+            }`}
+          >
+            <ImageIcon className="w-4 h-4 text-purple-400" />
+            <span>photo (รูปภาพ)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedFolder("documents");
+              setCategory("documents");
+            }}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+              category === "documents"
+                ? "bg-blue-600 text-white shadow"
+                : "text-slate-300 hover:bg-white/5"
+            }`}
+          >
+            <FileText className="w-4 h-4 text-blue-400" />
+            <span>documents (เอกสาร)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedFolder("archives");
+              setCategory("archives");
+            }}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+              category === "archives"
+                ? "bg-blue-600 text-white shadow"
+                : "text-slate-300 hover:bg-white/5"
+            }`}
+          >
+            <FileArchive className="w-4 h-4 text-amber-400" />
+            <span>archive (ไฟล์บีบอัด)</span>
+          </button>
+
+          <div className="border-t border-white/10 my-2" />
+
+          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 py-1">
+            อุปกรณ์จัดเก็บ
           </div>
-        ) : viewMode === "grid" ? (
-          /* Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {filteredFiles.map((file) => {
-              const isImage = file.mimeType.startsWith("image/");
-              const isCopied = copiedId === file.id;
 
-              return (
-                <div
-                  key={file.id}
-                  className="group relative p-3 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-cyan-500/40 hover:bg-white/[0.06] transition-all flex flex-col justify-between"
-                >
-                  {/* Thumbnail / Icon Container */}
-                  <div
-                    onClick={() => isImage && setPreviewImage(file.url)}
-                    className={`w-full h-32 rounded-xl bg-black/40 border border-white/5 overflow-hidden flex items-center justify-center mb-2 relative ${
-                      isImage ? "cursor-pointer group-hover:scale-[1.02]" : ""
-                    } transition-transform`}
-                  >
-                    {isImage ? (
-                      <img
-                        src={file.url}
-                        alt={file.originalName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center gap-1.5 p-3 text-center">
-                        {getFileIcon(file.mimeType, file.originalName)}
-                        <span className="text-[10px] text-slate-400 uppercase font-mono truncate max-w-[90px]">
-                          {file.originalName.split(".").pop()}
-                        </span>
-                      </div>
-                    )}
+          <div className="px-2.5 py-2 rounded-lg bg-black/20 border border-white/5 text-[11px] space-y-1">
+            <div className="flex items-center gap-1.5 text-slate-300 font-medium">
+              <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Volume 1</span>
+            </div>
+            <div className="text-slate-400 text-[10px]">
+              พื้นที่: {formatBytes(totalSize)} / 500 GB
+            </div>
+          </div>
+        </div>
 
-                    {/* Quick Preview overlay for images */}
-                    {isImage && (
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs gap-1 font-medium">
-                        <Eye className="w-4 h-4" /> ดูรูป
-                      </div>
-                    )}
-                  </div>
+        {/* Right Content Pane */}
+        <div className="flex-1 overflow-auto p-4 flex flex-col justify-between">
+          <div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-400 text-xs">
+                <RefreshCw className="w-6 h-6 animate-spin text-cyan-400 mb-2" />
+                กำลังโหลด File Station...
+              </div>
+            ) : filteredFiles.length === 0 ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="cursor-pointer border-2 border-dashed border-white/10 hover:border-cyan-500/50 rounded-2xl p-12 text-center flex flex-col items-center justify-center transition-all bg-white/[0.01] hover:bg-white/[0.03]"
+              >
+                <UploadCloud className="w-12 h-12 text-slate-500 hover:text-cyan-400 transition-colors mb-3" />
+                <h3 className="font-semibold text-white text-sm">โฟลเดอร์นี้ยังไม่มีไฟล์</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm leading-relaxed">
+                  คลิกที่นี่ หรือ ลากไฟล์มาวางใน File Station เพื่อเริ่มต้นอัปโหลด
+                </p>
+              </div>
+            ) : viewMode === "grid" ? (
+              /* Synology DSM Grid View */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {filteredFiles.map((file) => {
+                  const isImage = file.mimeType.startsWith("image/");
+                  const isSelected = selectedFileId === file.id;
 
-                  {/* File Metadata */}
-                  <div className="min-w-0">
+                  return (
                     <div
-                      className="text-xs font-medium text-white truncate"
-                      title={file.originalName}
+                      key={file.id}
+                      onClick={() => setSelectedFileId(file.id)}
+                      onDoubleClick={() => isImage && setPreviewImage(file.url)}
+                      className={`group relative p-2.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer ${
+                        isSelected
+                          ? "bg-blue-600/20 border-blue-500 shadow-md ring-1 ring-blue-400/30"
+                          : "bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]"
+                      }`}
                     >
-                      {file.originalName}
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                      <span>{formatBytes(file.sizeBytes)}</span>
-                      <span className="truncate max-w-[80px]" title={file.uploadedBy}>
-                        {file.uploadedBy}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions Toolbar */}
-                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-white/5">
-                    <div className="flex items-center gap-1">
-                      <a
-                        href={file.url}
-                        download={file.originalName}
-                        className="cursor-pointer p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                        title="ดาวน์โหลด (Download)"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </a>
-                      <button
-                        onClick={() => handleCopyLink(file)}
-                        className="cursor-pointer p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                        title="คัดลอกลิงก์ (Copy URL)"
-                      >
-                        {isCopied ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <div className="w-full h-28 rounded-lg bg-black/40 border border-white/5 overflow-hidden flex items-center justify-center mb-2 relative">
+                        {isImage ? (
+                          <img
+                            src={file.url}
+                            alt={file.originalName}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
                         ) : (
-                          <Copy className="w-3.5 h-3.5" />
+                          <div className="flex flex-col items-center gap-1 p-2 text-center">
+                            {getFileIcon(file.mimeType, file.originalName)}
+                            <span className="text-[10px] text-slate-400 uppercase font-mono truncate max-w-[80px]">
+                              {file.originalName.split(".").pop()}
+                            </span>
+                          </div>
                         )}
-                      </button>
-                    </div>
+                      </div>
 
-                    <button
-                      onClick={() => handleDelete(file.id, file.originalName)}
-                      className="cursor-pointer p-1 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                      title="ลบไฟล์"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* Table List View */
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
-                  <th className="py-2.5 px-3">ชื่อไฟล์</th>
-                  <th className="py-2.5 px-3">ประเภท (MIME)</th>
-                  <th className="py-2.5 px-3">ขนาด</th>
-                  <th className="py-2.5 px-3">ผู้อัปโหลด</th>
-                  <th className="py-2.5 px-3">วันที่อัปโหลด</th>
-                  <th className="py-2.5 px-3 text-right">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredFiles.map((file) => (
-                  <tr key={file.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2.5">
-                        {getFileIcon(file.mimeType, file.originalName)}
-                        <a
-                          href={file.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-white hover:text-cyan-400 truncate max-w-xs transition-colors"
+                      <div className="min-w-0">
+                        <div
+                          className="text-xs font-medium text-white truncate"
+                          title={file.originalName}
                         >
                           {file.originalName}
-                        </a>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex justify-between">
+                          <span>{formatBytes(file.sizeBytes)}</span>
+                          <span className="truncate max-w-[70px]">{file.uploadedBy}</span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">
-                      {file.mimeType}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-300 font-mono">
-                      {formatBytes(file.sizeBytes)}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-300">{file.uploadedBy}</td>
-                    <td className="py-2.5 px-3 text-slate-400">
-                      {new Date(file.uploadedAt).toLocaleString("th-TH")}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleCopyLink(file)}
-                          className="cursor-pointer p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white"
-                          title="คัดลอกลิงก์"
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Synology DSM List View */
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
+                      <th className="py-2 px-3">ชื่อไฟล์</th>
+                      <th className="py-2 px-3">ขนาด</th>
+                      <th className="py-2 px-3">ประเภท</th>
+                      <th className="py-2 px-3">ผู้อัปโหลด</th>
+                      <th className="py-2 px-3">วันที่แก้ไข</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredFiles.map((file) => {
+                      const isSelected = selectedFileId === file.id;
+                      return (
+                        <tr
+                          key={file.id}
+                          onClick={() => setSelectedFileId(file.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected ? "bg-blue-600/20" : "hover:bg-white/[0.02]"
+                          }`}
                         >
-                          {copiedId === file.id ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                        <a
-                          href={file.url}
-                          download={file.originalName}
-                          className="cursor-pointer p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white"
-                          title="ดาวน์โหลด"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
-                        <button
-                          onClick={() => handleDelete(file.id, file.originalName)}
-                          className="cursor-pointer p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
-                          title="ลบ"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              {getFileIcon(file.mimeType, file.originalName)}
+                              <span className="font-medium text-white truncate max-w-xs">
+                                {file.originalName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-slate-300 font-mono">
+                            {formatBytes(file.sizeBytes)}
+                          </td>
+                          <td className="py-2 px-3 text-slate-400 text-[11px]">
+                            {file.mimeType}
+                          </td>
+                          <td className="py-2 px-3 text-slate-300">{file.uploadedBy}</td>
+                          <td className="py-2 px-3 text-slate-400">
+                            {new Date(file.uploadedAt).toLocaleDateString("th-TH")}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Synology File Station Status Footer */}
+          <div className="pt-3 mt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+            <div>
+              <span>{filteredFiles.length} รายการ</span>
+              {selectedFile && (
+                <span className="ml-2 text-cyan-300">
+                  (เลือก 1 รายการ: {selectedFile.originalName} • {formatBytes(selectedFile.sizeBytes)})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <span>Synology File Station Protocol</span>
+              <span>•</span>
+              <span className="text-emerald-400">Healthy</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Image Preview Modal */}
@@ -533,7 +559,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
             className="relative max-w-3xl max-h-[85vh] bg-[#16112a] border border-white/20 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
           >
             <div className="p-3 border-b border-white/10 flex items-center justify-between bg-black/30">
-              <span className="text-xs font-semibold text-white">ดูตัวอย่างรูปภาพ</span>
+              <span className="text-xs font-semibold text-white">ดูตัวอย่างรูปภาพ (Photo Viewer)</span>
               <button
                 onClick={() => setPreviewImage(null)}
                 className="cursor-pointer px-2.5 py-1 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors"

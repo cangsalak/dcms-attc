@@ -3,20 +3,20 @@ import { FileManagerApp } from "./components/FileManagerApp";
 
 export const filesModule: AppModule = {
   id: "files",
-  name: "File Manager",
-  nameTh: "จัดการไฟล์ & อัปโหลด",
-  description: "ระบบอัปโหลด จัดเก็บ ดาวน์โหลด และจัดการไฟล์บน Server รองรับ Drag & Drop",
+  name: "File Station",
+  nameTh: "File Station (จัดการไฟล์)",
+  description: "ศูนย์จัดการไฟล์และอัปโหลดสไตล์ Synology File Station รองรับการจัดระเบียบและแชร์ไฟล์",
   version: "1.0.0",
   category: "tools",
   iconName: "folder",
-  colorGradient: "from-cyan-600 to-blue-600",
+  colorGradient: "from-blue-600 to-cyan-500",
   defaultSize: {
-    width: 980,
-    height: 620,
+    width: 1020,
+    height: 640,
   },
   minSize: {
-    width: 650,
-    height: 450,
+    width: 700,
+    height: 480,
   },
   enabled: true,
   isSystemApp: false,
