@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { AppModule, WindowState } from "../types/module";
-import { defaultModules, getModuleById } from "../registry/module-registry";
+import { defaultModules, getModuleById, allAvailableModulesMap } from "../registry/module-registry";
 import { DateFormatConfig, defaultDateConfig } from "../lib/dateFormat";
 
 interface WindowManagerContextType {
@@ -66,6 +66,45 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
     } catch {
       // Ignore
     }
+  }, []);
+
+  // Fetch installed modules from database on mount
+  useEffect(() => {
+    async function loadInstalledModules() {
+      try {
+        const res = await fetch("/api/modules");
+        if (res.ok) {
+          const data = await res.json();
+          const installedList: Array<{ id: string; name: string; version: string; enabled: boolean }> =
+            data.modules || [];
+
+          if (installedList.length > 0) {
+            setModules((prev) => {
+              const currentIds = new Set(prev.map((m) => m.id));
+              const modulesToAdd: AppModule[] = [];
+
+              for (const item of installedList) {
+                if (!currentIds.has(item.id) && item.enabled) {
+                  const mod = allAvailableModulesMap[item.id];
+                  if (mod) {
+                    modulesToAdd.push(mod);
+                  }
+                }
+              }
+
+              if (modulesToAdd.length > 0) {
+                return [...prev, ...modulesToAdd];
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load installed modules:", err);
+      }
+    }
+
+    loadInstalledModules();
   }, []);
 
   const setLanguage = (lang: "th" | "en") => {
@@ -214,12 +253,29 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
       if (prev.some((m) => m.id === newModule.id)) return prev;
       return [...prev, newModule];
     });
+
+    // Also persist in DB
+    fetch("/api/modules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: newModule.id,
+        name: newModule.name,
+        version: newModule.version,
+        enabled: true,
+      }),
+    }).catch((err) => console.error("Error saving installed module:", err));
   }, []);
 
   const uninstallModule = useCallback(
     (moduleId: string) => {
       setWindows((prev) => prev.filter((w) => w.appId !== moduleId));
       setModules((prev) => prev.filter((m) => m.id !== moduleId || m.isSystemApp));
+
+      // Also remove from DB
+      fetch(`/api/modules?id=${moduleId}`, {
+        method: "DELETE",
+      }).catch((err) => console.error("Error removing installed module:", err));
     },
     []
   );

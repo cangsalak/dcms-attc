@@ -2,18 +2,29 @@
 
 import React, { useState } from "react";
 import {
-  Boxes,
   Download,
   Trash2,
   CheckCircle,
   Sparkles,
-  Search,
   ExternalLink,
   ShieldCheck,
   Cpu,
+  Layers,
+  ShoppingBag,
+  Check,
+  RefreshCw,
+  Box,
 } from "lucide-react";
 import { useWindowManager } from "@/core/context/WindowManagerContext";
 import { DynamicIcon } from "@/core/components/IconResolver";
+import {
+  ModuleContainer,
+  ModuleToolbar,
+  ModuleButton,
+  ModuleContextMenu,
+  ModuleFooter,
+} from "@/core/components/ui/ModuleLayout";
+import { allAvailableModulesMap } from "@/core/registry/module-registry";
 
 export interface MarketplaceApp {
   id: string;
@@ -34,7 +45,7 @@ export const availableMarketplaceApps: MarketplaceApp[] = [
     id: "inventory",
     name: "Inventory & Stock",
     nameTh: "ระบบจัดการสต็อกและคลังสินค้า",
-    description: "ติดตามสินค้าคงคลัง ล็อตสินค้า การรับเข้า-เบิกออก และแจ้งเตือนสต็อกใกล้หมด",
+    description: "ติดตามสินค้าคงคลัง ล็อตสินค้า การรับเข้า-เบิกออก และแจ้งเตือนสต็อกใกล้หมดแบบเรียลไทม์",
     version: "1.2.0",
     category: "business",
     iconName: "packages",
@@ -47,7 +58,7 @@ export const availableMarketplaceApps: MarketplaceApp[] = [
     id: "billing",
     name: "Billing & Invoices",
     nameTh: "ระบบใบเสร็จและใบแจ้งหนี้",
-    description: "ออกใบเสนอราคา ใบเสร็จรับเงิน ใบกำกับภาษี และติดตามยอดค้างชำระ",
+    description: "ออกใบเสนอราคา ใบเสร็จรับเงิน ใบกำกับภาษี VAT 7% พร้อม QR Code ชำระเงิน",
     version: "2.0.1",
     category: "business",
     iconName: "document",
@@ -60,7 +71,7 @@ export const availableMarketplaceApps: MarketplaceApp[] = [
     id: "audit-logs",
     name: "Audit & Security Logs",
     nameTh: "ประวัติกิจกรรมและความปลอดภัย",
-    description: "เก็บบันทึกประวัติการเข้าใช้งาน (Audit Trail) ตามมาตรฐานความปลอดภัย",
+    description: "เก็บบันทึกประวัติการเข้าใช้งาน (Audit Trail) พร้อมส่งออก CSV/JSON ตามมาตรฐาน ISO/IEC 27001",
     version: "1.0.5",
     category: "tools",
     iconName: "security",
@@ -73,7 +84,7 @@ export const availableMarketplaceApps: MarketplaceApp[] = [
     id: "terminal",
     name: "System Terminal",
     nameTh: "เทอร์มินัลจัดการระบบ",
-    description: "คอมมานด์ไลน์และเชลล์สำหรับตรวจสอบสถานะ Docker, Container และทรัพยากร",
+    description: "คอนโซลคอมมานด์ไลน์และเชลล์อินเตอร์แอคทีฟสำหรับตรวจสอบสถานะ Node.js, PM2 และฐานข้อมูล",
     version: "0.9.4",
     category: "tools",
     iconName: "terminal",
@@ -91,120 +102,137 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
   const [activeTab, setActiveTab] = useState<"available" | "installed">(
     "available"
   );
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Context Menu
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    app: MarketplaceApp;
+  } | null>(null);
 
   const installedIds = modules.map((m) => m.id);
 
   const handleInstall = (app: MarketplaceApp) => {
     setInstallingId(app.id);
+
+    // Retrieve the real functional module from the registry
+    const realModule = allAvailableModulesMap[app.id];
+
     setTimeout(() => {
-      installDynamicModule({
-        id: app.id,
-        name: app.name,
-        nameTh: app.nameTh,
-        description: app.description,
-        version: app.version,
-        category: app.category,
-        iconName: app.iconName,
-        colorGradient: app.colorGradient,
-        defaultSize: { width: 850, height: 550 },
-        minSize: { width: 500, height: 400 },
-        enabled: true,
-        isSystemApp: false,
-        desktopShortcut: true,
-        dockShortcut: true,
-        component: ({ windowId }: { windowId: string }) => (
-          <div className="p-8 h-full bg-[#130f24] text-white flex flex-col items-center justify-center text-center select-text">
-            <div
-              className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${app.colorGradient} flex items-center justify-center shadow-xl shadow-black/40 mb-4`}
-            >
-              <DynamicIcon name={app.iconName} className="w-8 h-8 text-white" />
+      if (realModule) {
+        installDynamicModule(realModule);
+      } else {
+        // Fallback dynamic registration
+        installDynamicModule({
+          id: app.id,
+          name: app.name,
+          nameTh: app.nameTh,
+          description: app.description,
+          version: app.version,
+          category: app.category,
+          iconName: app.iconName,
+          colorGradient: app.colorGradient,
+          defaultSize: { width: 850, height: 550 },
+          minSize: { width: 500, height: 400 },
+          enabled: true,
+          isSystemApp: false,
+          desktopShortcut: true,
+          dockShortcut: true,
+          component: ({ windowId }: { windowId: string }) => (
+            <div className="p-8 text-center text-white">
+              โมดูล {app.name} พร้อมทำงาน
             </div>
-            <h2 className="text-xl font-bold">{app.name}</h2>
-            <p className="text-sm text-indigo-300 mt-1">{app.nameTh}</p>
-            <p className="text-xs text-slate-400 max-w-md mt-3">{app.description}</p>
-            <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-left text-slate-300 max-w-md w-full">
-              <div className="font-semibold text-emerald-400 mb-1 flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" /> โมดูลนี้ถูกโหลดและติดตั้งสำเร็จ!
-              </div>
-              <p className="text-slate-400 mt-1 leading-relaxed">
-                โครงสร้างของแอปนี้ถูกแยกเป็นอิสระ (Decoupled Module)
-                ในสภาพแวดล้อมจริงคุณสามารถสร้างโฟลเดอร์ใน <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">src/modules/{app.id}/</code>{" "}
-                แล้วผูก component ฐานข้อมูล และ API routes เข้ามาได้ทันที
-              </p>
-            </div>
-          </div>
-        ),
-      });
+          ),
+        });
+      }
       setInstallingId(null);
-    }, 600);
+    }, 400);
   };
 
-  const filteredMarketplace = availableMarketplaceApps.filter(
-    (app) =>
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  const filteredMarketplace = availableMarketplaceApps.filter((app) => {
+    const matchesCategory =
+      categoryFilter === "all" || app.category === categoryFilter;
+    const matchesSearch =
       app.name.toLowerCase().includes(search.toLowerCase()) ||
       app.nameTh.toLowerCase().includes(search.toLowerCase()) ||
-      app.description.toLowerCase().includes(search.toLowerCase())
-  );
+      app.description.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
-    <div className="flex flex-col h-full bg-[#120e24] text-slate-100 select-text font-sans">
-      {/* Top Banner */}
-      <div className="px-6 py-5 border-b border-white/10 bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-blue-900/30 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-1">
-            <Sparkles className="w-3.5 h-3.5" /> Extension & App Center
+    <ModuleContainer>
+      {/* Module Toolbar */}
+      <ModuleToolbar
+        leftActions={
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab("available")}
+              className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeTab === "available"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              แอปที่พร้อมติดตั้ง ({availableMarketplaceApps.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("installed")}
+              className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeTab === "installed"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              ติดตั้งแล้วในระบบ ({modules.length})
+            </button>
           </div>
-          <h1 className="text-xl font-bold text-white">ศูนย์ติดตั้งและจัดการโมดูล (App Store)</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            ดาวน์โหลดและติดตั้งโมดูลเพิ่มเติม หรือลบโมดูลที่ไม่ใช้งานโดยไม่กระทบต่อ Core
-          </p>
-        </div>
+        }
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="ค้นหาชื่อ หรือคำอธิบายโมดูล..."
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
 
-        {/* Tab switcher */}
-        <div className="flex p-1 rounded-xl bg-white/5 border border-white/10">
-          <button
-            onClick={() => setActiveTab("available")}
-            className={`cursor-pointer px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === "available"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            แอปที่พร้อมติดตั้ง ({availableMarketplaceApps.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("installed")}
-            className={`cursor-pointer px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === "installed"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            ติดตั้งแล้วในเครื่อง ({modules.length})
-          </button>
-        </div>
-      </div>
+      {/* Category Strip (When in available tab) */}
+      {activeTab === "available" && (
+        <div className="px-4 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-1.5">
+            {[
+              { key: "all", label: "ทั้งหมด" },
+              { key: "business", label: "หมวดธุรกิจ (Business)" },
+              { key: "tools", label: "เครื่องมือระบบ (Tools)" },
+            ].map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setCategoryFilter(cat.key)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                  categoryFilter === cat.key
+                    ? "bg-white/15 text-white border border-white/20 font-semibold"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Search Bar */}
-      <div className="px-6 py-3 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
-        <div className="relative w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="ค้นหาชื่อโมดูล หรือคำอธิบาย..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-          />
+          <div className="text-[11px] text-slate-400 hidden sm:block">
+            พร้อมใช้งานจริงและบันทึกลงฐานข้อมูลอัตโนมัติ
+          </div>
         </div>
-        <div className="text-xs text-slate-400">
-          สถาปัตยกรรม Plug & Play (Hot Reloadable Extensions)
-        </div>
-      </div>
+      )}
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 select-text">
         {activeTab === "available" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredMarketplace.map((app) => {
@@ -214,11 +242,19 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
               return (
                 <div
                   key={app.id}
-                  className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/40 hover:bg-white/[0.05] transition-all flex flex-col justify-between group"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      app,
+                    });
+                  }}
+                  className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-purple-500/40 hover:bg-white/[0.05] transition-all flex flex-col justify-between group shadow-lg shadow-black/20"
                 >
                   <div className="flex items-start gap-4">
                     <div
-                      className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${app.colorGradient} flex items-center justify-center shrink-0 shadow-lg shadow-black/30 group-hover:scale-105 transition-transform`}
+                      className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${app.colorGradient} flex items-center justify-center shrink-0 shadow-lg shadow-black/40 group-hover:scale-105 transition-transform`}
                     >
                       <DynamicIcon name={app.iconName} className="w-7 h-7 text-white" />
                     </div>
@@ -241,10 +277,10 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
                   </div>
 
                   <div className="flex items-center justify-between pt-4 mt-3 border-t border-white/5">
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
                       <span>ผู้พัฒนา: {app.author}</span>
                       <span>•</span>
-                      <span>ขนาด: {app.size}</span>
+                      <span>{app.size}</span>
                     </div>
 
                     {isInstalled ? (
@@ -252,22 +288,23 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
                         <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
                           <CheckCircle className="w-3.5 h-3.5" /> ติดตั้งแล้ว
                         </span>
-                        <button
+                        <ModuleButton
                           onClick={() => openApp(app.id)}
-                          className="cursor-pointer px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors"
+                          variant="secondary"
                         >
                           เปิดแอป
-                        </button>
+                        </ModuleButton>
                       </div>
                     ) : (
-                      <button
+                      <ModuleButton
                         onClick={() => handleInstall(app)}
                         disabled={isProcessing}
-                        className="cursor-pointer px-4 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all active:scale-95 disabled:opacity-50"
+                        variant="primary"
+                        icon={isProcessing ? RefreshCw : Download}
+                        className="bg-purple-600 hover:bg-purple-500 shadow-purple-600/30"
                       >
-                        <Download className="w-3.5 h-3.5" />
                         {isProcessing ? "กำลังติดตั้ง..." : "ติดตั้ง (Install)"}
-                      </button>
+                      </ModuleButton>
                     )}
                   </div>
                 </div>
@@ -279,11 +316,11 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
             {modules.map((mod) => (
               <div
                 key={mod.id}
-                className="p-4 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-4"
+                className="p-4 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-4"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3.5">
                   <div
-                    className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${mod.colorGradient} flex items-center justify-center shrink-0 shadow-md`}
+                    className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${mod.colorGradient} flex items-center justify-center shrink-0 shadow-md`}
                   >
                     <DynamicIcon name={mod.iconName} className="w-5 h-5 text-white" />
                   </div>
@@ -298,9 +335,13 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
                       <span className="text-[10px] text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
                         v{mod.version}
                       </span>
-                      {mod.isSystemApp && (
+                      {mod.isSystemApp ? (
                         <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 font-medium">
-                          System App
+                          System Core App
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
+                          Extension Module
                         </span>
                       )}
                     </div>
@@ -309,20 +350,21 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
+                  <ModuleButton
                     onClick={() => openApp(mod.id)}
-                    className="cursor-pointer px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors"
+                    variant="secondary"
                   >
                     เปิดแอป
-                  </button>
+                  </ModuleButton>
                   {!mod.isSystemApp && (
-                    <button
+                    <ModuleButton
                       onClick={() => uninstallModule(mod.id)}
-                      className="cursor-pointer p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                      variant="danger"
+                      icon={Trash2}
                       title="ถอนการติดตั้ง"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      ถอนการติดตั้ง
+                    </ModuleButton>
                   )}
                 </div>
               </div>
@@ -330,6 +372,46 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
           </div>
         )}
       </div>
-    </div>
+
+      {/* Footer */}
+      <ModuleFooter
+        leftContent={`คลังแอป DCMS Extension Repository • ทั้งหมด ${availableMarketplaceApps.length} โมดูล`}
+        rightStatus="App Store Server Online"
+      />
+
+      {/* Context Menu (Right Click) */}
+      {contextMenu && (
+        <ModuleContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            installedIds.includes(contextMenu.app.id)
+              ? {
+                  label: `เปิดแอป (${contextMenu.app.name})`,
+                  icon: ExternalLink,
+                  onClick: () => openApp(contextMenu.app.id),
+                }
+              : {
+                  label: `ติดตั้งโมดูล (${contextMenu.app.name})`,
+                  icon: Download,
+                  onClick: () => handleInstall(contextMenu.app),
+                },
+            { divider: true },
+            installedIds.includes(contextMenu.app.id)
+              ? {
+                  label: "ถอนการติดตั้งโมดูลนี้",
+                  icon: Trash2,
+                  danger: true,
+                  onClick: () => uninstallModule(contextMenu.app.id),
+                }
+              : {
+                  label: "ยกเลิก",
+                  onClick: () => {},
+                },
+          ]}
+        />
+      )}
+    </ModuleContainer>
   );
 }
