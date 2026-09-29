@@ -73,3 +73,14 @@ DATABASE_URL=mysql://root:password@127.0.0.1:3306/dcms_db
 DB_TYPE=postgres
 DATABASE_URL=postgresql://postgres:password@127.0.0.1:5432/dcms_db?schema=public
 ```
+
+---
+
+## 🧩 คู่มือการพัฒนาโมดูล & กฎสำหรับ AI (Module Development & AI Rules)
+
+ระบบใช้สถาปัตยกรรมแยกอิสระ (Decoupled Module Architecture) พร้อมชุดคอมโพเนนต์ UX/UI มาตรฐานกลาง เพื่อให้ทุกโมดูลมีหน้าตา สไตล์ และการทำงานเหมือนกัน:
+
+* 📖 **คู่มือฉบับเต็ม:** [docs/MODULE_DEVELOPMENT_GUIDE.md](docs/MODULE_DEVELOPMENT_GUIDE.md)
+* 🤖 **กฎและข้อบังคับสำหรับ AI:** [AGENTS.md](AGENTS.md) และ [CLAUDE.md](CLAUDE.md)
+* ⭐ **คอมโพเนนต์มาตรฐานกลาง:** `@/core/components/ui/ModuleLayout` (`ModuleContainer`, `ModuleToolbar`, `ModuleButton`, `ModuleContextMenu`, `ModuleFooter`, `ModuleModal`)
+
