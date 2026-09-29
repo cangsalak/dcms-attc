@@ -123,10 +123,11 @@ export function checkFolderPermission(
 
   // 3. Evaluate by accessType
   if (accessType === "public") {
+    const canWrite = permLevel === "read_write";
     return {
       canRead: true,
-      canWrite: permLevel === "read_write",
-      canManage: false,
+      canWrite,
+      canManage: canWrite,
     };
   }
 
@@ -135,10 +136,11 @@ export function checkFolderPermission(
     if (!hasRole) {
       return { canRead: false, canWrite: false, canManage: false, reason: "สิทธิ์บทบาทไม่เพียงพอ" };
     }
+    const canWrite = permLevel === "read_write";
     return {
       canRead: true,
-      canWrite: permLevel === "read_write",
-      canManage: false,
+      canWrite,
+      canManage: canWrite,
     };
   }
 
@@ -148,10 +150,11 @@ export function checkFolderPermission(
     if (!hasDept) {
       return { canRead: false, canWrite: false, canManage: false, reason: "สิทธิ์แผนกไม่ตรงกัน" };
     }
+    const canWrite = permLevel === "read_write";
     return {
       canRead: true,
-      canWrite: permLevel === "read_write",
-      canManage: false,
+      canWrite,
+      canManage: canWrite,
     };
   }
 
@@ -160,17 +163,19 @@ export function checkFolderPermission(
     if (!isWhitelisted) {
       return { canRead: false, canWrite: false, canManage: false, reason: "โฟลเดอร์ส่วนบุคคล" };
     }
+    const canWrite = permLevel === "read_write";
     return {
       canRead: true,
-      canWrite: permLevel === "read_write",
-      canManage: false,
+      canWrite,
+      canManage: canWrite,
     };
   }
 
   // Fallback default
+  const defaultCanWrite = permLevel === "read_write";
   return {
     canRead: true,
-    canWrite: permLevel === "read_write",
-    canManage: false,
+    canWrite: defaultCanWrite,
+    canManage: defaultCanWrite,
   };
 }

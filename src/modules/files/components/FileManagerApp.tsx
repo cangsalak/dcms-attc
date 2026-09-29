@@ -304,7 +304,13 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
       }
       setFolders((prev) => prev.filter((f) => f.id !== id));
       if (selectedFolderId === id) setSelectedFolderId(null);
-      loadData(currentFolderId);
+
+      // If we deleted the current folder we are inside, step back
+      if (currentFolderId === id) {
+        handleGoBack();
+      } else {
+        loadData(currentFolderId);
+      }
     } catch (e) {
       console.error("Delete folder error:", e);
     }
@@ -527,28 +533,38 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                 <span>สิทธิ์ & คุณสมบัติ (Permissions)</span>
               </button>
 
-              {selectedFolder.currentUserCanManage !== false && (
-                <button
-                  onClick={() => handleDeleteFolder(selectedFolder.id, selectedFolder.name)}
-                  className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 flex items-center gap-1.5 transition-colors border border-rose-500/20"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>ลบโฟลเดอร์</span>
-                </button>
-              )}
+              <button
+                onClick={() => handleDeleteFolder(selectedFolder.id, selectedFolder.name)}
+                className="cursor-pointer px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/30"
+                title="ลบโฟลเดอร์ที่เลือก"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ลบโฟลเดอร์</span>
+              </button>
             </>
           )}
 
-          {/* Inside Folder Actions (When no item selected, can view current folder permissions) */}
+          {/* Inside Folder Actions (When no item selected, can view current folder permissions & delete current folder) */}
           {!selectedFolder && !selectedFile && currentFolderInfo && (
-            <button
-              onClick={() => handleOpenPermissions(currentFolderInfo)}
-              className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 flex items-center gap-1.5 transition-colors border border-white/10"
-              title="ดูสิทธิ์ของโฟลเดอร์ปัจจุบัน"
-            >
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>สิทธิ์โฟลเดอร์นี้</span>
-            </button>
+            <>
+              <button
+                onClick={() => handleOpenPermissions(currentFolderInfo)}
+                className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 flex items-center gap-1.5 transition-colors border border-white/10"
+                title="ดูสิทธิ์ของโฟลเดอร์ปัจจุบัน"
+              >
+                <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                <span>สิทธิ์โฟลเดอร์นี้</span>
+              </button>
+
+              <button
+                onClick={() => handleDeleteFolder(currentFolderInfo.id, currentFolderInfo.name)}
+                className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 flex items-center gap-1.5 transition-colors border border-rose-500/30"
+                title="ลบโฟลเดอร์นี้และกลับไปยังโฟลเดอร์ก่อนหน้า"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ลบโฟลเดอร์นี้</span>
+              </button>
+            </>
           )}
 
           {/* File Selected Actions */}
@@ -575,15 +591,14 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                 <span>แชร์ลิงก์</span>
               </button>
 
-              {!isReadOnlyCurrentFolder && (
-                <button
-                  onClick={() => handleDeleteFile(selectedFile.id, selectedFile.originalName)}
-                  className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 flex items-center gap-1.5 transition-colors border border-rose-500/20"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>ลบ</span>
-                </button>
-              )}
+              <button
+                onClick={() => handleDeleteFile(selectedFile.id, selectedFile.originalName)}
+                className="cursor-pointer px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/30"
+                title="ลบไฟล์ที่เลือก"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ลบไฟล์</span>
+              </button>
             </>
           )}
         </div>
@@ -709,34 +724,49 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
           {allFolders.length > 0 && (
             <div className="pl-3 space-y-0.5 border-l border-white/10 my-1">
               {allFolders.map((fld) => (
-                <button
+                <div
                   key={fld.id}
-                  onClick={() => {
-                    setCurrentFolderId(fld.id);
-                    setBreadcrumbs([
-                      { id: "root", name: "uploads" },
-                      { id: fld.id, name: fld.name },
-                    ]);
-                    setCategory("all");
-                  }}
-                  className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium transition-all text-left ${
+                  className={`group flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
                     currentFolderId === fld.id
                       ? "bg-blue-600/30 text-white border border-blue-500/40"
                       : "text-slate-400 hover:bg-white/5 hover:text-white"
                   }`}
                 >
-                  <span className="flex items-center gap-1.5 truncate">
+                  <button
+                    onClick={() => {
+                      setCurrentFolderId(fld.id);
+                      setBreadcrumbs([
+                        { id: "root", name: "uploads" },
+                        { id: fld.id, name: fld.name },
+                      ]);
+                      setCategory("all");
+                    }}
+                    className="flex-1 flex items-center gap-1.5 truncate text-left cursor-pointer"
+                  >
                     {fld.accessType === "private" ? (
                       <Lock className="w-3 h-3 text-rose-400 shrink-0" />
                     ) : (
                       <Folder className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     )}
                     <span className="truncate">{fld.name}</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    {fld.fileCount}
-                  </span>
-                </button>
+                  </button>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {fld.fileCount}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFolder(fld.id, fld.name);
+                      }}
+                      className="cursor-pointer opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 text-slate-500 transition-opacity"
+                      title="ลบโฟลเดอร์"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -749,7 +779,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
           <button
             onClick={() => setCategory("images")}
-            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
               category === "images"
                 ? "bg-blue-600 text-white shadow"
                 : "text-slate-300 hover:bg-white/5"
@@ -761,7 +791,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
           <button
             onClick={() => setCategory("documents")}
-            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
               category === "documents"
                 ? "bg-blue-600 text-white shadow"
                 : "text-slate-300 hover:bg-white/5"
@@ -773,7 +803,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
           <button
             onClick={() => setCategory("archives")}
-            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
               category === "archives"
                 ? "bg-blue-600 text-white shadow"
                 : "text-slate-300 hover:bg-white/5"
@@ -857,23 +887,18 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                             {fld.fileCount} ไฟล์
                           </span>
 
-                          {/* Quick Permission Badge Top Right */}
-                          <div className="absolute top-1.5 right-1.5">
-                            {fld.accessType === "private" && (
-                              <span title="โฟลเดอร์ส่วนตัว" className="p-1 rounded bg-rose-500/30 text-rose-300 inline-block">
-                                <Lock className="w-3 h-3" />
-                              </span>
-                            )}
-                            {fld.accessType === "role" && (
-                              <span title="จำกัดตามบทบาท" className="p-1 rounded bg-indigo-500/30 text-indigo-300 inline-block">
-                                <Users className="w-3 h-3" />
-                              </span>
-                            )}
-                            {fld.accessType === "department" && (
-                              <span title={`แผนก: ${fld.department}`} className="p-1 rounded bg-emerald-500/30 text-emerald-300 inline-block">
-                                <Building2 className="w-3 h-3" />
-                              </span>
-                            )}
+                          {/* Quick Actions Top Right */}
+                          <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFolder(fld.id, fld.name);
+                              }}
+                              className="p-1 rounded-md bg-rose-500/30 hover:bg-rose-500 text-rose-200 hover:text-white transition-all shadow"
+                              title="ลบโฟลเดอร์นี้"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                         </div>
 
@@ -886,16 +911,28 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                           </div>
                           <div className="mt-1 flex items-center justify-between">
                             {renderFolderPermissionBadge(fld)}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenPermissions(fld);
-                              }}
-                              className="cursor-pointer opacity-0 group-hover:opacity-100 p-1 hover:text-indigo-300 text-slate-500 transition-opacity"
-                              title="ตั้งค่าสิทธิ์"
-                            >
-                              <Shield className="w-3 h-3" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenPermissions(fld);
+                                }}
+                                className="cursor-pointer p-1 hover:bg-indigo-500/20 rounded text-slate-400 hover:text-indigo-300 transition-colors"
+                                title="ตั้งค่าสิทธิ์"
+                              >
+                                <Shield className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteFolder(fld.id, fld.name);
+                                }}
+                                className="cursor-pointer p-1 hover:bg-rose-500/20 rounded text-slate-400 hover:text-rose-400 transition-colors"
+                                title="ลบโฟลเดอร์"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -936,6 +973,20 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                             </span>
                           </div>
                         )}
+
+                        {/* Direct Delete button on File Card */}
+                        <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFile(file.id, file.originalName);
+                            }}
+                            className="p-1 rounded-md bg-rose-500/40 hover:bg-rose-600 text-white transition-colors shadow"
+                            title="ลบไฟล์นี้"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="min-w-0">
@@ -945,9 +996,21 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                         >
                           {file.originalName}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 flex justify-between">
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex justify-between items-center">
                           <span>{formatBytes(file.sizeBytes)}</span>
-                          <span className="truncate max-w-[70px]">{file.uploadedBy}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="truncate max-w-[60px]">{file.uploadedBy}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFile(file.id, file.originalName);
+                              }}
+                              className="cursor-pointer p-0.5 hover:text-rose-400 text-slate-500 transition-colors"
+                              title="ลบไฟล์"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1006,7 +1069,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                             {new Date(fld.createdAt).toLocaleDateString("th-TH")}
                           </td>
                           <td className="py-2 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1017,18 +1080,16 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                               >
                                 <Shield className="w-3.5 h-3.5" />
                               </button>
-                              {fld.currentUserCanManage !== false && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteFolder(fld.id, fld.name);
-                                  }}
-                                  className="cursor-pointer p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
-                                  title="ลบโฟลเดอร์"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteFolder(fld.id, fld.name);
+                                }}
+                                className="cursor-pointer p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
+                                title="ลบโฟลเดอร์"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1067,15 +1128,41 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                             {new Date(file.uploadedAt).toLocaleDateString("th-TH")}
                           </td>
                           <td className="py-2 px-3 text-right">
-                            {!isReadOnlyCurrentFolder && (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <a
+                                href={file.url}
+                                download={file.originalName}
+                                onClick={(e) => e.stopPropagation()}
+                                className="cursor-pointer p-1 rounded hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300"
+                                title="ดาวน์โหลด"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
                               <button
-                                onClick={() => handleDeleteFile(file.id, file.originalName)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyLink(file);
+                                }}
+                                className="cursor-pointer p-1 rounded hover:bg-blue-500/20 text-slate-400 hover:text-blue-300"
+                                title="แชร์ลิงก์"
+                              >
+                                {copiedId === file.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                ) : (
+                                  <Share2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteFile(file.id, file.originalName);
+                                }}
                                 className="cursor-pointer p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
                                 title="ลบไฟล์"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1399,14 +1486,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
               {/* Tab: Permissions */}
               {permTab === "permissions" && (
                 <div className="space-y-4">
-                  {/* Read-Only Notice if user cannot manage */}
-                  {permTargetFolder.currentUserCanManage === false && (
-                    <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2">
-                      <Lock className="w-3.5 h-3.5 shrink-0" />
-                      <span>เฉพาะเจ้าของโฟลเดอร์หรือผู้ดูแลระบบที่สามารถแก้ไขสิทธิ์ได้ (โหมดดูข้อมูล)</span>
-                    </div>
-                  )}
-
                   {/* Access type options */}
                   <div>
                     <label className="block text-[11px] font-medium text-slate-300 mb-2">
@@ -1415,7 +1494,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <button
                         type="button"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         onClick={() => setEditAccessType("public")}
                         className={`p-2.5 rounded-xl border text-left transition-all ${
                           editAccessType === "public"
@@ -1429,7 +1507,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
                       <button
                         type="button"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         onClick={() => setEditAccessType("private")}
                         className={`p-2.5 rounded-xl border text-left transition-all ${
                           editAccessType === "private"
@@ -1443,7 +1520,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
                       <button
                         type="button"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         onClick={() => setEditAccessType("role")}
                         className={`p-2.5 rounded-xl border text-left transition-all ${
                           editAccessType === "role"
@@ -1457,7 +1533,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
                       <button
                         type="button"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         onClick={() => setEditAccessType("department")}
                         className={`p-2.5 rounded-xl border text-left transition-all ${
                           editAccessType === "department"
@@ -1487,7 +1562,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                             >
                               <input
                                 type="checkbox"
-                                disabled={permTargetFolder.currentUserCanManage === false}
                                 checked={checked}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -1514,7 +1588,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                       </label>
                       <input
                         type="text"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         required
                         value={editDept}
                         onChange={(e) => setEditDept(e.target.value)}
@@ -1532,7 +1605,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <button
                         type="button"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         onClick={() => setEditPermLevel("read_write")}
                         className={`p-2 rounded-xl border text-left transition-all ${
                           editPermLevel === "read_write"
@@ -1544,7 +1616,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                       </button>
                       <button
                         type="button"
-                        disabled={permTargetFolder.currentUserCanManage === false}
                         onClick={() => setEditPermLevel("read_only")}
                         className={`p-2 rounded-xl border text-left transition-all ${
                           editPermLevel === "read_only"
@@ -1568,7 +1639,6 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                     </label>
                     <input
                       type="text"
-                      disabled={permTargetFolder.currentUserCanManage === false}
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-xl bg-black/40 border border-white/15 text-white"
@@ -1602,15 +1672,27 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+              <div className="flex justify-between items-center pt-3 border-t border-white/10">
                 <button
                   type="button"
-                  onClick={() => setShowPermModal(false)}
-                  className="cursor-pointer px-3.5 py-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-300"
+                  onClick={() => {
+                    setShowPermModal(false);
+                    handleDeleteFolder(permTargetFolder.id, permTargetFolder.name);
+                  }}
+                  className="cursor-pointer px-3 py-1.5 text-xs rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 font-medium flex items-center gap-1.5 transition-colors"
                 >
-                  ปิด
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>ลบโฟลเดอร์นี้</span>
                 </button>
-                {permTargetFolder.currentUserCanManage !== false && (
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPermModal(false)}
+                    className="cursor-pointer px-3.5 py-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-300"
+                  >
+                    ปิด
+                  </button>
                   <button
                     type="submit"
                     disabled={permLoading}
@@ -1619,7 +1701,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                     {permLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                     <span>บันทึกการตั้งค่าสิทธิ์</span>
                   </button>
-                )}
+                </div>
               </div>
             </form>
           </div>
