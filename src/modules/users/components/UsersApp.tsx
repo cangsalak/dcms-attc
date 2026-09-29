@@ -15,6 +15,13 @@ import {
 } from "lucide-react";
 import { UserItem, UserRole, UserStatus } from "../types";
 import { initialUsers } from "../services/userService";
+import {
+  ModuleContainer,
+  ModuleToolbar,
+  ModuleButton,
+  ModuleFooter,
+  ModuleModal,
+} from "@/core/components/ui/ModuleLayout";
 
 export function UsersApp({ windowId }: { windowId: string }) {
   const [users, setUsers] = useState<UserItem[]>(initialUsers);
@@ -87,7 +94,6 @@ export function UsersApp({ windowId }: { windowId: string }) {
         setUsers([data.user, ...users]);
       }
     } catch {
-      // Fallback local
       const newUser: UserItem = {
         id: `usr-${Date.now().toString().slice(-4)}`,
         name: formData.name,
@@ -101,7 +107,6 @@ export function UsersApp({ windowId }: { windowId: string }) {
       setUsers([newUser, ...users]);
     }
 
-    setShowAddModal(false);
     setFormData({
       name: "",
       email: "",
@@ -109,14 +114,15 @@ export function UsersApp({ windowId }: { windowId: string }) {
       department: "General",
       status: "active",
     });
+    setShowAddModal(false);
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้นี้ออกจากระบบ?")) {
+    if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้งานนี้?")) {
       try {
         await fetch(`/api/users?id=${id}`, { method: "DELETE" });
-      } catch (e) {
-        console.error("Failed to delete user on server:", e);
+      } catch {
+        // Continue
       }
       setUsers(users.filter((u) => u.id !== id));
     }
@@ -126,107 +132,79 @@ export function UsersApp({ windowId }: { windowId: string }) {
   const adminCount = users.filter((u) => u.role.includes("Admin")).length;
 
   return (
-    <div className="flex flex-col h-full bg-[#120e24] text-slate-100 select-text font-sans">
-      {/* Module Sub-Header */}
-      <div className="px-6 py-4 border-b border-white/10 bg-white/[0.02] flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Users className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              จัดการผู้ใช้งาน (User Management Module)
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                v1.0.0
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase font-mono">
-                ⚡ DB: {dbDialect}
-              </span>
-            </h1>
-            <p className="text-xs text-slate-400">
-              โมดูลแยกอิสระ (Decoupled Module) พร้อมระบบจัดการสิทธิ์และข้อมูลผู้ใช้
-            </p>
-          </div>
-        </div>
+    <ModuleContainer>
+      {/* Standard Unified Toolbar */}
+      <ModuleToolbar
+        leftActions={
+          <>
+            <ModuleButton
+              variant="primary"
+              icon={UserPlus}
+              onClick={() => setShowAddModal(true)}
+            >
+              เพิ่มผู้ใช้ใหม่
+            </ModuleButton>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="cursor-pointer px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
-        >
-          <UserPlus className="w-4 h-4" />
-          เพิ่มผู้ใช้ใหม่
-        </button>
-      </div>
+            <div className="flex items-center gap-1.5 ml-2">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="px-2 py-1 text-xs rounded-lg bg-black/30 border border-white/10 text-slate-200 focus:outline-none focus:border-blue-500"
+              >
+                <option value="all" className="bg-[#1a1532] text-white">ทั้งหมด (All Roles)</option>
+                <option value="Super Admin" className="bg-[#1a1532] text-white">Super Admin</option>
+                <option value="Admin" className="bg-[#1a1532] text-white">Admin</option>
+                <option value="Manager" className="bg-[#1a1532] text-white">Manager</option>
+                <option value="Member" className="bg-[#1a1532] text-white">Member</option>
+              </select>
+            </div>
+          </>
+        }
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="ค้นหาชื่อ, อีเมล, แผนก..."
+        onRefresh={fetchUsers}
+        isRefreshing={isLoading}
+      />
 
       {/* Metrics Row */}
-      <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-white/5 bg-white/[0.01]">
-        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-          <div className="text-xs text-slate-400">ผู้ใช้ทั้งหมด</div>
-          <div className="text-2xl font-bold text-white mt-1">{users.length}</div>
+      <div className="px-6 py-3 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-white/5 bg-white/[0.01] shrink-0">
+        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="text-[11px] text-slate-400">ผู้ใช้ทั้งหมด</div>
+          <div className="text-xl font-bold text-white mt-0.5">{users.length} คน</div>
         </div>
-        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-          <div className="text-xs text-emerald-400 flex items-center gap-1">
+        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="text-[11px] text-emerald-400 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" /> ใช้งานอยู่ (Active)
           </div>
-          <div className="text-2xl font-bold text-emerald-400 mt-1">{activeCount}</div>
+          <div className="text-xl font-bold text-emerald-400 mt-0.5">{activeCount} คน</div>
         </div>
-        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-          <div className="text-xs text-indigo-400 flex items-center gap-1">
+        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="text-[11px] text-indigo-400 flex items-center gap-1">
             <Shield className="w-3 h-3" /> ผู้ดูแลระบบ (Admins)
           </div>
-          <div className="text-2xl font-bold text-indigo-400 mt-1">{adminCount}</div>
+          <div className="text-xl font-bold text-indigo-400 mt-0.5">{adminCount} คน</div>
         </div>
-        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-          <div className="text-xs text-amber-400 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> ระงับ / ไม่ใช้งาน
+        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="text-[11px] text-amber-400 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> ฐานข้อมูลหลัก
           </div>
-          <div className="text-2xl font-bold text-amber-400 mt-1">
-            {users.length - activeCount}
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters Toolbar */}
-      <div className="px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-white/[0.02]">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="ค้นหาตามชื่อ, อีเมล หรือแผนก..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs text-slate-400">บทบาท:</span>
-          <select
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-2.5 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-indigo-500"
-          >
-            <option value="all" className="bg-[#1a1532] text-white">ทั้งหมด (All Roles)</option>
-            <option value="Super Admin" className="bg-[#1a1532] text-white">Super Admin</option>
-            <option value="Admin" className="bg-[#1a1532] text-white">Admin</option>
-            <option value="Manager" className="bg-[#1a1532] text-white">Manager</option>
-            <option value="Member" className="bg-[#1a1532] text-white">Member</option>
-          </select>
+          <div className="text-xl font-bold text-amber-400 mt-0.5 uppercase font-mono">{dbDialect}</div>
         </div>
       </div>
 
       {/* Users Table */}
       <div className="flex-1 overflow-auto px-6 py-2">
-        <table className="w-full text-left text-sm">
+        <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-white/10 text-xs text-slate-400 uppercase tracking-wider">
-              <th className="py-3 px-3">ผู้ใช้งาน</th>
-              <th className="py-3 px-3">บทบาท (Role)</th>
-              <th className="py-3 px-3">แผนก</th>
-              <th className="py-3 px-3">สถานะ</th>
-              <th className="py-3 px-3">วันที่สร้าง</th>
-              <th className="py-3 px-3 text-right">จัดการ</th>
+            <tr className="border-b border-white/10 text-[10px] text-slate-400 uppercase tracking-wider">
+              <th className="py-2.5 px-3">ผู้ใช้งาน</th>
+              <th className="py-2.5 px-3">บทบาท (Role)</th>
+              <th className="py-2.5 px-3">แผนก</th>
+              <th className="py-2.5 px-3">สถานะ</th>
+              <th className="py-2.5 px-3">วันที่สร้าง</th>
+              <th className="py-2.5 px-3 text-right">จัดการ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -239,22 +217,22 @@ export function UsersApp({ windowId }: { windowId: string }) {
             ) : (
               filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-white/[0.03] transition-colors">
-                  <td className="py-3 px-3">
+                  <td className="py-2.5 px-3">
                     <div className="flex items-center gap-3">
                       <img
                         src={user.avatar}
                         alt={user.name}
-                        className="w-9 h-9 rounded-full object-cover border border-white/20"
+                        className="w-8 h-8 rounded-full object-cover border border-white/20"
                       />
                       <div>
-                        <div className="font-medium text-white">{user.name}</div>
-                        <div className="text-xs text-slate-400">{user.email}</div>
+                        <div className="font-semibold text-white">{user.name}</div>
+                        <div className="text-[11px] text-slate-400">{user.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-3">
+                  <td className="py-2.5 px-3">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
                         user.role === "Super Admin"
                           ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
                           : user.role === "Admin"
@@ -267,10 +245,10 @@ export function UsersApp({ windowId }: { windowId: string }) {
                       {user.role}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-slate-300 text-xs">{user.department}</td>
-                  <td className="py-3 px-3">
+                  <td className="py-2.5 px-3 text-slate-300">{user.department}</td>
+                  <td className="py-2.5 px-3">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium ${
                         user.status === "active"
                           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                           : user.status === "inactive"
@@ -294,23 +272,15 @@ export function UsersApp({ windowId }: { windowId: string }) {
                         : "Suspended"}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-xs text-slate-400">{user.createdAt}</td>
-                  <td className="py-3 px-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        title="แก้ไข"
-                        className="cursor-pointer p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        title="ลบ"
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="cursor-pointer p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                  <td className="py-2.5 px-3 text-slate-400">{user.createdAt}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    <button
+                      title="ลบผู้ใช้"
+                      onClick={() => handleDeleteUser(user.id)}
+                      className="cursor-pointer p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))
@@ -319,98 +289,99 @@ export function UsersApp({ windowId }: { windowId: string }) {
         </table>
       </div>
 
-      {/* Add User Modal */}
-      {showAddModal && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#1a1435] border border-white/20 rounded-2xl p-6 shadow-2xl">
-            <h2 className="text-lg font-bold text-white mb-1">เพิ่มผู้ใช้งานใหม่</h2>
-            <p className="text-xs text-slate-400 mb-4">
-              กรอกข้อมูลเพื่อลงทะเบียนผู้ใช้ในระบบ Users Module
-            </p>
+      {/* Standard Unified Footer Status Bar */}
+      <ModuleFooter
+        leftContent={`ผู้ใช้งานทั้งหมด ${users.length} คน (Active ${activeCount})`}
+      />
 
-            <form onSubmit={handleAddUser} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  ชื่อ - นามสกุล
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น สมชาย ใจดี"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-white/5 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  อีเมล (Email)
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="user@organization.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-white/5 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    บทบาท (Role)
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) =>
-                      setFormData({ ...formData, role: e.target.value as UserRole })
-                    }
-                    className="w-full px-2.5 py-2 text-sm rounded-lg bg-white/5 border border-white/15 text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="Super Admin" className="bg-[#1a1435]">Super Admin</option>
-                    <option value="Admin" className="bg-[#1a1435]">Admin</option>
-                    <option value="Manager" className="bg-[#1a1435]">Manager</option>
-                    <option value="Member" className="bg-[#1a1435]">Member</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    แผนก (Department)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="เช่น IT, Operations"
-                    value={formData.department}
-                    onChange={(e) =>
-                      setFormData({ ...formData, department: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-lg bg-white/5 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="cursor-pointer px-4 py-2 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="cursor-pointer px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
-                >
-                  บันทึกผู้ใช้
-                </button>
-              </div>
-            </form>
+      {/* Standard Unified Modal */}
+      <ModuleModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="เพิ่มผู้ใช้งานใหม่"
+        icon={UserPlus}
+        subtitle="บันทึกลงระบบและฐานข้อมูลหลักแบบอัตโนมัติ"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleAddUser} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-medium text-slate-300 mb-1">
+              ชื่อ - นามสกุล
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="เช่น สมชาย ใจดี"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-black/40 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
           </div>
-        </div>
-      )}
-    </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-300 mb-1">
+              อีเมล (Email)
+            </label>
+            <input
+              type="email"
+              required
+              placeholder="somchai@dcms.local"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-black/40 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                บทบาท (Role)
+              </label>
+              <select
+                value={formData.role}
+                onChange={(e) =>
+                  setFormData({ ...formData, role: e.target.value as UserRole })
+                }
+                className="w-full px-3 py-2 text-xs rounded-xl bg-black/40 border border-white/15 text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="Member" className="bg-[#181330] text-white">Member</option>
+                <option value="Manager" className="bg-[#181330] text-white">Manager</option>
+                <option value="Admin" className="bg-[#181330] text-white">Admin</option>
+                <option value="Super Admin" className="bg-[#181330] text-white">Super Admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                แผนก (Department)
+              </label>
+              <input
+                type="text"
+                placeholder="เช่น IT, HR, Finance"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-black/40 border border-white/15 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="cursor-pointer px-3.5 py-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-300"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="cursor-pointer px-4 py-1.5 text-xs rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-md shadow-blue-600/30"
+            >
+              เพิ่มผู้ใช้
+            </button>
+          </div>
+        </form>
+      </ModuleModal>
+    </ModuleContainer>
   );
 }
