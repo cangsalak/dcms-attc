@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DCMS Core OS - Web Desktop (Modular & Multi-Database Architecture)
 
-## Getting Started
+เว็บแอปพลิเคชันรูปแบบ **Desktop OS** พัฒนาด้วย **Next.js 16 (App Router) + TypeScript + Tailwind CSS**
+รันบน **Node.js ผ่าน PM2** (ประหยัดทรัพยากร ไม่กินแรมมหาศาลเหมือน Docker)
+พร้อมระบบ **Authentication บังคับ Login ก่อนเข้าใช้งาน**, รองรับ **ภาษาและวันที่แบบไทย 100% (พ.ศ.) ปรับแต่งได้ใน Settings**, และรองรับฐานข้อมูล **SQLite (เบาสุด), MySQL / MariaDB, PostgreSQL**
 
-First, run the development server:
+---
 
+## 🇹🇭 การแสดงผลวันที่ภาษาไทย 100% และการตั้งค่า
+
+ระบบรองรับการแสดงผลวันที่และเวลาเป็นภาษาไทย 100% โดยสามารถปรับแต่งได้ใน **การตั้งค่า (Settings) -> แท็บ "วันที่ & ภาษา"**:
+1. **ระบบปีศักราช:** สลับได้ระหว่าง **พุทธศักราช (พ.ศ. 2569)** หรือ **คริสต์ศักราช (ค.ศ. 2026)**
+2. **รูปแบบวันที่:**
+   * แบบย่อ (แนะนำ): เช่น `อ. 29 ก.ย. 2569`
+   * แบบเต็ม: เช่น `วันอังคารที่ 29 กันยายน พ.ศ. 2569`
+   * แบบตัวเลข: เช่น `29/09/2569`
+3. **รูปแบบเวลา:** 24 ชั่วโมง หรือ 12 ชั่วโมง พร้อมสวิตช์เปิด/ปิด คำว่า `"น."` (เช่น `15:35 น.`)
+4. **บันทึกถาวร:** การตั้งค่าจะถูกบันทึกลงในเครื่องของผู้ใช้ (Local Storage) ทำให้ไม่ต้องตั้งใหม่ทุกครั้ง
+
+---
+
+## 🔐 บัญชีเข้าใช้งานระบบเริ่มต้น (Default Login Credentials)
+
+เมื่อเปิดเข้าระบบ ระบบจะแสดงหน้าต่าง **Lock / Login Screen สไตล์ Desktop OS** ทุกคนต้องลงชื่อเข้าใช้ก่อน:
+
+| บัญชี | อีเมล (Email) | รหัสผ่าน (Password) | บทบาท (Role) |
+| :--- | :--- | :--- | :--- |
+| **Super Admin** | `admin@dcms.local` | `admin123` | ผู้ดูแลระบบสูงสุด |
+| **Admin** | `chanikan.w@dcms.local` | `admin123` | ผู้ดูแลระบบ |
+
+*(หน้าจอมีปุ่ม Quick Demo Account ให้กดสลับบัญชีทดสอบได้ใน 1 คลิก)*
+
+---
+
+## ⚡ คำสั่งจัดการระบบผ่าน PM2 (Production)
+
+### 1. Build และ Deploy:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+rm -rf .next && npm run build && npm run pm2:start
+```
+หรือใช้คำสั่งย่อ:
+```bash
+npm run deploy
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. คำสั่งจัดการ PM2 อื่นๆ:
+* **ดูสถานะการทำงาน:** `npm run pm2:status` หรือ `pm2 status`
+* **รีสตาร์ทระบบ:** `npm run pm2:restart`
+* **ดู Log การทำงาน:** `npm run pm2:logs`
+* **หยุดการทำงาน:** `npm run pm2:stop`
+* **ลบโปรเซสออก:** `npm run pm2:delete`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🗄️ การสลับฐานข้อมูล (Multi-Database Support)
 
-## Learn More
+ตั้งค่าในไฟล์ `.env`:
 
-To learn more about Next.js, take a look at the following resources:
+### ตัวเลือกที่ 1: SQLite (แนะนำ - เบาที่สุด ไม่กินแรม ไม่ต้องลง DB Server)
+```env
+DB_TYPE=sqlite
+SQLITE_FILE_PATH=./data/dcms.sqlite
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### ตัวเลือกที่ 2: MySQL / MariaDB
+```env
+DB_TYPE=mysql
+DATABASE_URL=mysql://root:password@127.0.0.1:3306/dcms_db
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### ตัวเลือกที่ 3: PostgreSQL
+```env
+DB_TYPE=postgres
+DATABASE_URL=postgresql://postgres:password@127.0.0.1:5432/dcms_db?schema=public
+```
