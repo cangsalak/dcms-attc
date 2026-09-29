@@ -101,11 +101,30 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
     mime_type VARCHAR(128) NOT NULL,
     size_bytes BIGINT NOT NULL,
     url TEXT NOT NULL,
+    folder_id VARCHAR(64) DEFAULT 'root',
     uploaded_by VARCHAR(64),
     uploaded_at ${isPostgres ? "TIMESTAMPTZ DEFAULT NOW()" : "DATETIME DEFAULT CURRENT_TIMESTAMP"}
   );`;
 
   await db.execute(createFilesSql);
+
+  // Ensure folder_id column exists if table was created previously without it
+  try {
+    await db.execute("ALTER TABLE files ADD COLUMN folder_id VARCHAR(64) DEFAULT 'root'");
+  } catch {
+    // Column already exists
+  }
+
+  // 4. Folders table (Hierarchical Directory System)
+  const createFoldersSql = `CREATE TABLE IF NOT EXISTS folders (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    parent_id VARCHAR(64) DEFAULT 'root',
+    created_by VARCHAR(64),
+    created_at ${isPostgres ? "TIMESTAMPTZ DEFAULT NOW()" : "DATETIME DEFAULT CURRENT_TIMESTAMP"}
+  );`;
+
+  await db.execute(createFoldersSql);
 
   // Seed default admin user if empty
   const countUsers = await db.query<{ count: number | string }>(

@@ -4,15 +4,28 @@ import path from "path";
 import { ensureDatabaseReady } from "@/core/database";
 import { cookies } from "next/headers";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const folderId = searchParams.get("folderId");
+    const category = searchParams.get("category");
+
     const db = await ensureDatabaseReady();
-    const rows = await db.query(
-      `SELECT id, filename, original_name as "originalName", mime_type as "mimeType", 
-              size_bytes as "sizeBytes", url, uploaded_by as "uploadedBy", 
-              uploaded_at as "uploadedAt" 
-       FROM files ORDER BY uploaded_at DESC`
-    );
+
+    let sql = `SELECT id, filename, original_name as "originalName", mime_type as "mimeType", 
+                      size_bytes as "sizeBytes", url, folder_id as "folderId", 
+                      uploaded_by as "uploadedBy", uploaded_at as "uploadedAt" 
+               FROM files `;
+    const params: any[] = [];
+
+    if (folderId && folderId !== "all") {
+      sql += ` WHERE folder_id = ? `;
+      params.push(folderId);
+    }
+
+    sql += ` ORDER BY uploaded_at DESC`;
+
+    const rows = await db.query(sql, params);
     return NextResponse.json({ files: rows });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -24,6 +37,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const uploadedFiles = formData.getAll("files") as File[];
     const singleFile = formData.get("file") as File | null;
+    const folderId = (formData.get("folderId") as string) || "root";
 
     const filesToProcess: File[] = [];
     if (uploadedFiles && uploadedFiles.length > 0) {
@@ -42,7 +56,7 @@ export async function POST(req: Request) {
     // Get current user from session cookie
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("dcms_session");
-    let uploaderName = "System / Guest";
+    let uploaderName = "Admin";
     if (sessionCookie?.value) {
       try {
         const session = JSON.parse(sessionCookie.value);
@@ -71,8 +85,8 @@ export async function POST(req: Request) {
       const fileUrl = `/uploads/${uniqueFilename}`;
 
       await db.execute(
-        `INSERT INTO files (id, filename, original_name, mime_type, size_bytes, url, uploaded_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO files (id, filename, original_name, mime_type, size_bytes, url, folder_id, uploaded_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           uniqueFilename,
@@ -80,6 +94,7 @@ export async function POST(req: Request) {
           file.type || "application/octet-stream",
           file.size,
           fileUrl,
+          folderId,
           uploaderName,
         ]
       );
@@ -91,6 +106,7 @@ export async function POST(req: Request) {
         mimeType: file.type || "application/octet-stream",
         sizeBytes: file.size,
         url: fileUrl,
+        folderId,
         uploadedBy: uploaderName,
         uploadedAt: new Date().toISOString(),
       });
