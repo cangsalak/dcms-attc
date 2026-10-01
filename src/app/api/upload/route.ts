@@ -4,6 +4,35 @@ import path from "path";
 import { ensureDatabaseReady } from "@/core/database";
 import { getSessionUser, checkFolderPermission } from "@/core/lib/auth";
 
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+
+const DANGEROUS_EXTENSIONS = new Set([
+  ".html",
+  ".htm",
+  ".xhtml",
+  ".php",
+  ".phtml",
+  ".php3",
+  ".php4",
+  ".php5",
+  ".exe",
+  ".bat",
+  ".cmd",
+  ".sh",
+  ".bash",
+  ".zsh",
+  ".js",
+  ".mjs",
+  ".cgi",
+  ".pl",
+  ".jsp",
+  ".asp",
+  ".aspx",
+  ".vbs",
+  ".scr",
+  ".jar",
+]);
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -64,12 +93,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำการอัปโหลดไฟล์" },
+        { status: 401 }
+      );
+    }
+
     const formData = await req.formData();
     const uploadedFiles = formData.getAll("files") as File[];
     const singleFile = formData.get("file") as File | null;
     const folderId = (formData.get("folderId") as string) || "root";
 
-    const sessionUser = await getSessionUser();
     const db = await ensureDatabaseReady();
 
     // Check folder write permissions
@@ -100,7 +136,27 @@ export async function POST(req: Request) {
       );
     }
 
-    const uploaderName = sessionUser?.name || "Admin";
+    // Security validation: file size & dangerous extension checks
+    for (const file of filesToProcess) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: `ไฟล์ ${file.name} มีขนาดเกินกำหนด (สูงสุด 100 MB ต่อไฟล์)` },
+          { status: 400 }
+        );
+      }
+
+      const ext = path.extname(file.name).toLowerCase();
+      if (DANGEROUS_EXTENSIONS.has(ext)) {
+        return NextResponse.json(
+          {
+            error: `ไฟล์นามสกุล "${ext}" ไม่อนุญาตให้อัปโหลดเนื่องจากเหตุผลด้านความปลอดภัยของระบบ (Blocked Executable/Script Extension)`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const uploaderName = sessionUser.name;
 
     const uploadDir = path.join(process.cwd(), "public", "uploads");
     if (!fs.existsSync(uploadDir)) {
@@ -111,7 +167,7 @@ export async function POST(req: Request) {
 
     for (const file of filesToProcess) {
       const buffer = Buffer.from(await file.arrayBuffer());
-      const ext = path.extname(file.name) || "";
+      const ext = path.extname(file.name).toLowerCase() || "";
       const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_\-\u0E00-\u0E7F]/g, "_");
       const uniqueFilename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${baseName}${ext}`;
       const filePath = path.join(uploadDir, uniqueFilename);
@@ -161,6 +217,14 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำการลบไฟล์" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -168,7 +232,6 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Missing file id" }, { status: 400 });
     }
 
-    const sessionUser = await getSessionUser();
     const db = await ensureDatabaseReady();
     const rows = await db.query<{ filename: string; folder_id: string; uploaded_by: string }>(
       "SELECT filename, folder_id, uploaded_by FROM files WHERE id = ?",
@@ -183,8 +246,8 @@ export async function DELETE(req: Request) {
         const folderRows = await db.query(`SELECT * FROM folders WHERE id = ?`, [file.folder_id]);
         if (folderRows.length > 0) {
           const perm = checkFolderPermission(folderRows[0], sessionUser);
-          const isUploader = sessionUser?.name && file.uploaded_by === sessionUser.name;
-          if (!perm.canWrite && !isUploader && sessionUser?.role !== "Super Admin" && sessionUser?.role !== "Admin") {
+          const isUploader = sessionUser.name && file.uploaded_by === sessionUser.name;
+          if (!perm.canWrite && !isUploader && sessionUser.role !== "Super Admin" && sessionUser.role !== "Admin") {
             return NextResponse.json(
               { error: "คุณไม่มีสิทธิ์ลบไฟล์ในโฟลเดอร์นี้" },
               { status: 403 }

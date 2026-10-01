@@ -127,6 +127,12 @@ export async function POST(req: Request) {
     } = body;
 
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำรายการ" },
+        { status: 401 }
+      );
+    }
 
     const trimmedName = (name || "").trim().replace(/[\\/:*?"<>|]/g, "_");
     if (!trimmedName) {
@@ -215,6 +221,12 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำรายการ" },
+        { status: 401 }
+      );
+    }
     const body = await req.json();
     const {
       id,
@@ -303,6 +315,12 @@ export async function DELETE(req: Request) {
     }
 
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำรายการ" },
+        { status: 401 }
+      );
+    }
     const db = await ensureDatabaseReady();
 
     const rows = await db.query(`SELECT * FROM folders WHERE id = ?`, [id]);

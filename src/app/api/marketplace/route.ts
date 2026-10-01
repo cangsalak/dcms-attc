@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDatabaseReady } from "@/core/database";
+import { getSessionUser } from "@/core/lib/auth";
 
 export async function GET() {
   try {
@@ -31,6 +32,14 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำการเพิ่มแอปใหม่" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const {
       id,
@@ -41,7 +50,7 @@ export async function POST(req: Request) {
       category = "custom",
       iconName = "store",
       colorGradient = "from-blue-600 to-indigo-600",
-      author = "Community Developer",
+      author = sessionUser.name || "Community Developer",
       size = "Web App",
       entryType = "external_url",
       url = "",
@@ -52,6 +61,17 @@ export async function POST(req: Request) {
         { error: "App Name and URL are required for external apps" },
         { status: 400 }
       );
+    }
+
+    // Protocol validation
+    if (entryType === "external_url" && url) {
+      const isHttp = url.startsWith("http://") || url.startsWith("https://");
+      if (!isHttp) {
+        return NextResponse.json(
+          { error: "URL ต้องขึ้นต้นด้วย http:// หรือ https:// เท่านั้นเพื่อความปลอดภัย" },
+          { status: 400 }
+        );
+      }
     }
 
     const appId =
@@ -133,6 +153,14 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนทำการลบแอปพลิเคชัน" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

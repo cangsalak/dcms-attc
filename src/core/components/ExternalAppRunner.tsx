@@ -54,6 +54,23 @@ export function ExternalAppRunner({
   }
 
   const isHttps = url.startsWith("https://");
+  const isSafeProtocol = url.startsWith("http://") || url.startsWith("https://");
+
+  if (!isSafeProtocol) {
+    return (
+      <ModuleContainer>
+        <div className="h-full flex flex-col items-center justify-center p-6 text-center text-slate-300">
+          <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
+          <h3 className="text-sm font-bold text-white mb-1">
+            ความปลอดภัย: บล็อกที่อยู่ URL ที่ไม่ปลอดภัย
+          </h3>
+          <p className="text-xs text-slate-400 max-w-sm mb-4">
+            ระบบอนุญาตเฉพาะโปรโตคอล http:// และ https:// เท่านั้น เพื่อป้องกันการรันสคริปต์อันตราย (JavaScript / Data URI Blocked)
+          </p>
+        </div>
+      </ModuleContainer>
+    );
+  }
 
   return (
     <ModuleContainer>

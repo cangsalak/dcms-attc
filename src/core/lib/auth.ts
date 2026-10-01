@@ -1,4 +1,9 @@
 import { cookies } from "next/headers";
+import crypto from "crypto";
+
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  "dcms-core-os-cryptographic-signing-secret-key-2026-attc-enterprise";
 
 export interface SessionUser {
   id: string;
@@ -7,6 +12,79 @@ export interface SessionUser {
   role: string;
   department: string;
   avatar?: string;
+  loginAt?: string;
+}
+
+/**
+ * Signs a session payload with HMAC-SHA256 to prevent cookie tampering & privilege escalation
+ */
+export function signSession(payload: SessionUser): string {
+  const jsonStr = JSON.stringify(payload);
+  const base64Payload = Buffer.from(jsonStr).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", SESSION_SECRET)
+    .update(base64Payload)
+    .digest("base64url");
+  return `${base64Payload}.${signature}`;
+}
+
+/**
+ * Cryptographically verifies session token signature
+ */
+export function verifySession(token: string): SessionUser | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length === 2) {
+      const [base64Payload, signature] = parts;
+      const expectedSig = crypto
+        .createHmac("sha256", SESSION_SECRET)
+        .update(base64Payload)
+        .digest("base64url");
+
+      const sigBuf = Buffer.from(signature);
+      const expBuf = Buffer.from(expectedSig);
+
+      if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
+        const jsonStr = Buffer.from(base64Payload, "base64url").toString("utf-8");
+        return JSON.parse(jsonStr) as SessionUser;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hashes password using PBKDF2 with a random 16-byte cryptographic salt
+ */
+export function hashPassword(plainText: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto
+    .pbkdf2Sync(plainText, salt, 10000, 64, "sha512")
+    .toString("hex");
+  return `pbkdf2:${salt}:${hash}`;
+}
+
+/**
+ * Verifies a plaintext password against a stored PBKDF2 hash or legacy plaintext
+ */
+export function verifyPassword(plainText: string, storedHash: string): boolean {
+  if (!storedHash) return false;
+  if (storedHash.startsWith("pbkdf2:")) {
+    const parts = storedHash.split(":");
+    if (parts.length !== 3) return false;
+    const [, salt, hash] = parts;
+    const computed = crypto
+      .pbkdf2Sync(plainText, salt, 10000, 64, "sha512")
+      .toString("hex");
+    const compBuf = Buffer.from(computed);
+    const hashBuf = Buffer.from(hash);
+    return compBuf.length === hashBuf.length && crypto.timingSafeEqual(compBuf, hashBuf);
+  }
+  // Backwards compatibility for legacy plaintext passwords
+  return plainText === storedHash;
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -16,9 +94,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     if (!sessionCookie || !sessionCookie.value) {
       return null;
     }
-    const parsed = JSON.parse(sessionCookie.value);
-    if (!parsed || !parsed.id) return null;
-    return parsed as SessionUser;
+    return verifySession(sessionCookie.value);
   } catch {
     return null;
   }
