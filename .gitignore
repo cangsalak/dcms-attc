@@ -41,7 +41,7 @@ data/
 *.db
 
 # uploaded files
-uploads/
+/uploads/
 public/uploads/
 !public/uploads/.gitkeep
 

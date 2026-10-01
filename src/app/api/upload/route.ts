@@ -209,6 +209,7 @@ export async function POST(req: Request) {
       success: true,
       message: `อัปโหลดสำเร็จ ${savedRecords.length} ไฟล์`,
       files: savedRecords,
+      file: savedRecords[0] || null,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -80,6 +80,7 @@ export function SettingsApp({ windowId }: { windowId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingWallpaper, setIsUploadingWallpaper] = useState(false);
   const [wallpaperUploadError, setWallpaperUploadError] = useState("");
+  const [wallpaperUploadSuccess, setWallpaperUploadSuccess] = useState("");
   const [fileStationImages, setFileStationImages] = useState<
     Array<{ id: string; url: string; originalName: string }>
   >([]);
@@ -124,6 +125,7 @@ export function SettingsApp({ windowId }: { windowId: string }) {
 
     setIsUploadingWallpaper(true);
     setWallpaperUploadError("");
+    setWallpaperUploadSuccess("");
 
     try {
       const formData = new FormData();
@@ -140,9 +142,15 @@ export function SettingsApp({ windowId }: { windowId: string }) {
         throw new Error(data.error || "เกิดข้อผิดพลาดในการอัปโหลดภาพ");
       }
 
-      if (data.file?.url) {
-        addCustomWallpaper(data.file.url, data.file.originalName || file.name);
+      const uploadedFile = (data.files && data.files[0]) || data.file;
+      if (uploadedFile?.url) {
+        addCustomWallpaper(uploadedFile.url, uploadedFile.originalName || file.name);
+        setWallpaper(uploadedFile.url);
         fetchFileStationImages();
+        setWallpaperUploadSuccess(`อัปโหลดและตั้งเป็นภาพพื้นหลังเรียบร้อย: ${uploadedFile.originalName || file.name}`);
+        setTimeout(() => setWallpaperUploadSuccess(""), 5000);
+      } else {
+        throw new Error("ไม่พบข้อมูลไฟล์ภาพหลังการอัปโหลด");
       }
     } catch (err: any) {
       setWallpaperUploadError(err.message || "อัปโหลดภาพไม่สำเร็จ");
@@ -156,6 +164,9 @@ export function SettingsApp({ windowId }: { windowId: string }) {
     e.preventDefault();
     if (!urlInput.trim()) return;
     addCustomWallpaper(urlInput.trim(), "Web Wallpaper");
+    setWallpaper(urlInput.trim());
+    setWallpaperUploadSuccess("ตั้งค่าภาพพื้นหลังจากลิงก์เรียบร้อยแล้ว");
+    setTimeout(() => setWallpaperUploadSuccess(""), 4000);
     setUrlInput("");
     setShowUrlInput(false);
   };
@@ -682,6 +693,23 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                 </button>
               </div>
             </div>
+
+            {/* Success Message */}
+            {wallpaperUploadSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between animate-in fade-in duration-150">
+                <span className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  {wallpaperUploadSuccess}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setWallpaperUploadSuccess("")}
+                  className="text-emerald-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {/* Error Message */}
             {wallpaperUploadError && (
