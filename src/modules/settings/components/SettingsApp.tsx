@@ -87,6 +87,7 @@ export function SettingsApp({ windowId }: { windowId: string }) {
   const [isLoadingFileStationImages, setIsLoadingFileStationImages] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [isImportingUrl, setIsImportingUrl] = useState(false);
 
   const fetchFileStationImages = async () => {
     setIsLoadingFileStationImages(true);
@@ -160,15 +161,52 @@ export function SettingsApp({ windowId }: { windowId: string }) {
     }
   };
 
-  const handleAddWallpaperUrl = (e: React.FormEvent) => {
+  const handleAddWallpaperUrl = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!urlInput.trim()) return;
-    addCustomWallpaper(urlInput.trim(), "Web Wallpaper");
-    setWallpaper(urlInput.trim());
-    setWallpaperUploadSuccess("ตั้งค่าภาพพื้นหลังจากลิงก์เรียบร้อยแล้ว");
-    setTimeout(() => setWallpaperUploadSuccess(""), 4000);
-    setUrlInput("");
-    setShowUrlInput(false);
+    const rawUrl = urlInput.trim();
+    if (!rawUrl) return;
+
+    setIsImportingUrl(true);
+    setWallpaperUploadError("");
+    setWallpaperUploadSuccess("");
+
+    try {
+      // Step 1: Attempt to import & download through the backend (handles CORS, og:image, and saves to library)
+      const res = await fetch("/api/upload/from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: rawUrl }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.file?.url) {
+        addCustomWallpaper(data.file.url, data.file.originalName);
+        setWallpaper(data.file.url);
+        fetchFileStationImages();
+        setWallpaperUploadSuccess(`ดึงภาพจากเว็บและตั้งเป็นภาพพื้นหลังเรียบร้อย: ${data.file.originalName}`);
+        setTimeout(() => setWallpaperUploadSuccess(""), 5000);
+        setUrlInput("");
+        setShowUrlInput(false);
+        return;
+      }
+
+      // Step 2: If server returned specific rejection for non-image, throw error
+      if (!res.ok && data.error && !rawUrl.match(/\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i)) {
+        throw new Error(data.error);
+      }
+
+      // Step 3: Direct URL fallback
+      addCustomWallpaper(rawUrl, "Web Wallpaper");
+      setWallpaper(rawUrl);
+      setWallpaperUploadSuccess("ตั้งค่าภาพพื้นหลังเรียบร้อยแล้ว (Direct Link)");
+      setTimeout(() => setWallpaperUploadSuccess(""), 4000);
+      setUrlInput("");
+      setShowUrlInput(false);
+    } catch (err: any) {
+      setWallpaperUploadError(err.message || "ไม่สามารถดึงภาพจาก URL ที่ระบุได้");
+    } finally {
+      setIsImportingUrl(false);
+    }
   };
 
   useEffect(() => {
@@ -734,22 +772,31 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                 <LinkIcon className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 <input
                   type="url"
-                  placeholder="วางลิงก์รูปภาพ เช่น https://images.unsplash.com/..."
+                  placeholder="วางลิงก์รูปภาพ เช่น https://images.unsplash.com/... หรือหน้าเว็บที่มีรูปภาพ"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   className="flex-1 bg-transparent border-0 text-white placeholder-slate-500 text-xs focus:outline-none"
                   autoFocus
+                  disabled={isImportingUrl}
                 />
                 <button
                   type="submit"
-                  disabled={!urlInput.trim()}
-                  className="cursor-pointer px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-50"
+                  disabled={!urlInput.trim() || isImportingUrl}
+                  className="cursor-pointer px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-50 flex items-center gap-1.5 shadow-md shadow-indigo-600/30"
                 >
-                  นำมาใช้
+                  {isImportingUrl ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>กำลังดึงภาพ...</span>
+                    </>
+                  ) : (
+                    <span>นำมาใช้</span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowUrlInput(false)}
+                  disabled={isImportingUrl}
                   className="cursor-pointer px-2 py-1 text-slate-400 hover:text-white text-xs"
                 >
                   ยกเลิก
@@ -777,10 +824,16 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                         }`}
                         onClick={() => setWallpaper(wp.url)}
                       >
-                        <div
-                          className="h-28 bg-cover bg-center relative"
-                          style={{ backgroundImage: `url("${wp.url}")` }}
-                        >
+                        <div className="h-28 relative bg-black/40 overflow-hidden">
+                          <img
+                            src={wp.url}
+                            alt={wp.name}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
+                          />
                           {isSelected && (
                             <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
                               <Check className="w-3.5 h-3.5" />
@@ -839,6 +892,7 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                         key={file.id}
                         onClick={() => {
                           addCustomWallpaper(file.url, file.originalName);
+                          setWallpaper(file.url);
                         }}
                         className={`group relative rounded-xl border transition-all overflow-hidden cursor-pointer ${
                           isSelected
@@ -847,10 +901,16 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                         }`}
                         title={file.originalName}
                       >
-                        <div
-                          className="h-20 bg-cover bg-center relative"
-                          style={{ backgroundImage: `url("${file.url}")` }}
-                        >
+                        <div className="h-20 bg-black/40 relative overflow-hidden">
+                          <img
+                            src={file.url}
+                            alt={file.originalName}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
+                          />
                           {isSelected && (
                             <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-cyan-500 text-white flex items-center justify-center shadow-md">
                               <Check className="w-3 h-3" />

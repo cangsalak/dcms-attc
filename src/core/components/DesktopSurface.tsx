@@ -108,23 +108,25 @@ export function DesktopSurface() {
     <div
       onClick={handleDesktopClick}
       onContextMenu={handleContextMenu}
-      style={
-        isCustomImage
-          ? {
-              backgroundImage: `url("${wallpaper}")`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }
-          : undefined
-      }
-      className={`relative w-full h-[calc(100vh-32px)] overflow-hidden ${
-        isCustomImage ? "bg-[#0b0819]" : `bg-gradient-to-b ${wallpaperClass}`
-      } transition-all duration-500`}
+      className={`relative w-full h-[calc(100vh-32px)] overflow-hidden bg-gradient-to-b ${wallpaperClass} transition-all duration-500`}
     >
-      {/* If custom image wallpaper, add subtle ambient overlay */}
+      {/* Custom Image Wallpaper with no-referrer support for external web wallpapers */}
       {isCustomImage && (
-        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+        <>
+          <img
+            key={wallpaper}
+            src={wallpaper}
+            alt="Desktop Wallpaper"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none transition-opacity duration-500"
+            onError={(e) => {
+              console.warn("Failed to load wallpaper image:", wallpaper);
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+          {/* Subtle ambient overlay to ensure icons and widgets remain readable */}
+          <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+        </>
       )}
       {/* Abstract Curved Wave Lines */}
       <svg
