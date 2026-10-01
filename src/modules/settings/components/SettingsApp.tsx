@@ -45,7 +45,16 @@ import {
 } from "lucide-react";
 import { useWindowManager } from "@/core/context/WindowManagerContext";
 import { useAuth } from "@/core/context/AuthContext";
-import { formatCustomDateTime } from "@/core/lib/dateFormat";
+import {
+  formatCustomDateTime,
+  formatFullThaiDate,
+  formatRelativeThaiTime,
+} from "@/core/lib/dateFormat";
+import {
+  isNotificationUnread,
+  getNotificationBadgeText,
+  NOTIFICATION_TYPE_OPTIONS,
+} from "@/core/lib/notificationUtils";
 import { DynamicIcon } from "@/core/components/IconResolver";
 
 const wallpapers = [
@@ -1073,14 +1082,7 @@ export function SettingsApp({ windowId }: { windowId: string }) {
 
               {/* Type Category Filter Pills */}
               <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
-                {[
-                  { id: "all", label: "ทุกประเภท" },
-                  { id: "info", label: "ข้อมูล (Info)" },
-                  { id: "success", label: "สำเร็จ (Success)" },
-                  { id: "security", label: "ความปลอดภัย (Security)" },
-                  { id: "warning", label: "ข้อควรระวัง (Warning)" },
-                  { id: "error", label: "ข้อผิดพลาด (Error)" },
-                ].map((cat) => (
+                {NOTIFICATION_TYPE_OPTIONS.map((cat) => (
                   <button
                     key={cat.id}
                     type="button"
@@ -1124,13 +1126,13 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                         }
                       }
                       if (notifFilterType !== "all" && item.type !== notifFilterType) return false;
-                      const isUnread = !item.isRead || item.isRead === 0 || item.isRead === "0";
+                      const isUnread = isNotificationUnread(item.isRead);
                       if (notifFilterStatus === "unread" && !isUnread) return false;
                       if (notifFilterStatus === "read" && isUnread) return false;
                       return true;
                     })
                     .map((item) => {
-                      const isUnread = !item.isRead || item.isRead === 0 || item.isRead === "0";
+                      const isUnread = isNotificationUnread(item.isRead);
                       const isSelected = selectedNotifForDetail?.id === item.id;
                       return (
                         <div
@@ -1177,7 +1179,9 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                                 {item.message}
                               </p>
                               <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
-                                <span>{item.createdAt}</span>
+                                <span title={formatFullThaiDate(item.createdAt)}>
+                                  {formatRelativeThaiTime(item.createdAt)}
+                                </span>
                                 {item.link && (
                                   <span className="text-indigo-400 font-mono">
                                     @{item.link}
@@ -1200,10 +1204,10 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                       <div>
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-slate-300">
-                            {selectedNotifForDetail.type.toUpperCase()}
+                            {getNotificationBadgeText(selectedNotifForDetail.type)}
                           </span>
                           <span className="text-[11px] text-slate-400">
-                            {selectedNotifForDetail.createdAt}
+                            {formatFullThaiDate(selectedNotifForDetail.createdAt)}
                           </span>
                         </div>
                         <h3 className="text-sm font-bold text-white">

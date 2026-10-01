@@ -44,17 +44,9 @@ import {
   ModuleFooter,
   ModuleModal,
 } from "@/core/components/ui/ModuleLayout";
+import { formatBytes, formatThaiDateTime } from "@/core/lib";
 
 const AVAILABLE_ROLES = ["Super Admin", "Admin", "Manager", "Member"];
-
-function formatBytes(bytes: number, decimals = 2) {
-  if (!+bytes) return "0 Bytes";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
 
 function getFileIcon(mime: string, originalName: string) {
   if (mime.startsWith("image/")) return <ImageIcon className="w-5 h-5 text-purple-400" />;
@@ -1264,7 +1256,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                           </td>
                           <td className="py-2 px-3 text-slate-300">{fld.createdBy}</td>
                           <td className="py-2 px-3 text-slate-400">
-                            {new Date(fld.createdAt).toLocaleDateString("th-TH")}
+                            {formatThaiDateTime(fld.createdAt, "short")}
                           </td>
                           <td className="py-2 px-3 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -1336,7 +1328,7 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
                           </td>
                           <td className="py-2 px-3 text-slate-300">{file.uploadedBy}</td>
                           <td className="py-2 px-3 text-slate-400">
-                            {new Date(file.uploadedAt).toLocaleDateString("th-TH")}
+                            {formatThaiDateTime(file.uploadedAt, "short")}
                           </td>
                           <td className="py-2 px-3 text-right">
                             <div className="flex items-center justify-end gap-1">

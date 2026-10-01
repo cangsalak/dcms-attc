@@ -21,6 +21,7 @@ import {
   ModuleFooter,
 } from "@/core/components/ui/ModuleLayout";
 import { useAuth } from "@/core/context/AuthContext";
+import { formatFullThaiDate } from "@/core/lib";
 
 interface CommandHistory {
   command: string;
@@ -249,15 +250,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
       case "date":
         output = (
           <div className="text-amber-300 font-mono">
-            {new Date().toLocaleDateString("th-TH", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
+            {formatFullThaiDate(new Date(), { includeSeconds: true })}
           </div>
         );
         break;

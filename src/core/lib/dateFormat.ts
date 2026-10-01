@@ -136,3 +136,109 @@ export function formatCustomDateTime(
 
   return { dateStr, timeStr, fullDateStr };
 }
+
+/**
+ * แปลง Date | string | number เป็น Date object ที่ปลอดภัย
+ */
+export function parseSafeDate(input: Date | string | number | null | undefined): Date {
+  if (!input) return new Date();
+  if (input instanceof Date) return isNaN(input.getTime()) ? new Date() : input;
+  const d = new Date(input);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+/**
+ * ฟอร์แมตวันที่แบบไทยเต็มรูปแบบ (100% Thai Buddhist Era)
+ * ตัวอย่าง: วันพฤหัสบดีที่ 1 ตุลาคม 2569 เวลา 13:50:26 น.
+ */
+export function formatFullThaiDate(
+  dateInput: Date | string | number,
+  options?: {
+    includeWeekday?: boolean;
+    includeTime?: boolean;
+    includeSeconds?: boolean;
+  }
+): string {
+  try {
+    const d = parseSafeDate(dateInput);
+    const dayIndex = d.getDay();
+    const dayOfMonth = d.getDate();
+    const monthIndex = d.getMonth();
+    const yearBE = d.getFullYear() + 543;
+    const hours = d.getHours().toString().padStart(2, "0");
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const seconds = d.getSeconds().toString().padStart(2, "0");
+
+    const weekday = options?.includeWeekday !== false ? `${THAI_DAYS_FULL[dayIndex]}ที่ ` : "";
+    let str = `${weekday}${dayOfMonth} ${THAI_MONTHS_FULL[monthIndex]} ${yearBE}`;
+
+    if (options?.includeTime !== false) {
+      if (options?.includeSeconds) {
+        str += ` เวลา ${hours}:${minutes}:${seconds} น.`;
+      } else {
+        str += ` เวลา ${hours}:${minutes} น.`;
+      }
+    }
+
+    return str;
+  } catch {
+    return String(dateInput);
+  }
+}
+
+/**
+ * ฟอร์แมตเวลาสัมพัทธ์ภาษาไทย (Relative Time)
+ * ตัวอย่าง: เมื่อสักครู่, 5 นาทีที่แล้ว, 2 ชั่วโมงที่แล้ว, เมื่อวานนี้
+ */
+export function formatRelativeThaiTime(dateInput: Date | string | number): string {
+  try {
+    const date = parseSafeDate(dateInput);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return "เมื่อสักครู่";
+    if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
+    if (diffHour < 24) return `${diffHour} ชั่วโมงที่แล้ว`;
+    if (diffDay === 1) return "เมื่อวานนี้";
+    if (diffDay < 7) return `${diffDay} วันที่แล้ว`;
+
+    const dayOfMonth = date.getDate();
+    const monthIndex = date.getMonth();
+    const yearShortBE = (date.getFullYear() + 543) % 100;
+    return `${dayOfMonth} ${THAI_MONTHS_SHORT[monthIndex]} ${yearShortBE}`;
+  } catch {
+    return String(dateInput);
+  }
+}
+
+/**
+ * ฟอร์แมตวันที่แบบย่อ/กลางภาษาไทย (Medium / Short Thai Date)
+ * ตัวอย่าง: 1 ต.ค. 2569 13:50 น.
+ */
+export function formatThaiDateTime(
+  dateInput: Date | string | number,
+  style: "short" | "medium" | "full" = "medium"
+): string {
+  const d = parseSafeDate(dateInput);
+  const dayOfMonth = d.getDate();
+  const monthIndex = d.getMonth();
+  const yearBE = d.getFullYear() + 543;
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+
+  if (style === "short") {
+    const dayStr = dayOfMonth.toString().padStart(2, "0");
+    const monthStr = (monthIndex + 1).toString().padStart(2, "0");
+    return `${dayStr}/${monthStr}/${yearBE}`;
+  }
+
+  if (style === "full") {
+    return formatFullThaiDate(d);
+  }
+
+  return `${dayOfMonth} ${THAI_MONTHS_SHORT[monthIndex]} ${yearBE} ${hours}:${minutes} น.`;
+}

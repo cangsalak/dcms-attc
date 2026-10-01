@@ -19,17 +19,13 @@ import {
   Eye,
 } from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
-
-interface NotificationItem {
-  id: string;
-  userId?: string | null;
-  type: "info" | "success" | "warning" | "error" | "security";
-  title: string;
-  message: string;
-  link?: string | null;
-  isRead: boolean | number | string;
-  createdAt: string;
-}
+import { formatFullThaiDate, formatRelativeThaiTime } from "@/core/lib/dateFormat";
+import {
+  NotificationItem,
+  isNotificationUnread,
+  getNotificationBadgeText,
+  getNotificationTypeTheme,
+} from "@/core/lib/notificationUtils";
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -89,7 +85,7 @@ export function NotificationCenter({
       );
       if (onUnreadCountChange) {
         const remaining = notifications.filter(
-          (n) => n.id !== id && (!n.isRead || n.isRead === 0 || n.isRead === "0")
+          (n) => n.id !== id && isNotificationUnread(n.isRead)
         ).length;
         onUnreadCountChange(remaining);
       }
@@ -129,7 +125,7 @@ export function NotificationCenter({
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       if (onUnreadCountChange) {
         const remaining = notifications.filter(
-          (n) => n.id !== id && (!n.isRead || n.isRead === 0 || n.isRead === "0")
+          (n) => n.id !== id && isNotificationUnread(n.isRead)
         ).length;
         onUnreadCountChange(remaining);
       }
@@ -141,63 +137,6 @@ export function NotificationCenter({
   const handleNotificationClick = (item: NotificationItem) => {
     markAsRead(item.id);
     setSelectedNotification(item);
-  };
-
-  const formatFullThaiDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("th-TH", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const getTypeBadgeText = (type: NotificationItem["type"]) => {
-    switch (type) {
-      case "security":
-        return "ความปลอดภัย (Security)";
-      case "success":
-        return "สำเร็จ (Success)";
-      case "warning":
-        return "ข้อควรระวัง (Warning)";
-      case "error":
-        return "ข้อผิดพลาด (Error)";
-      case "info":
-      default:
-        return "ข้อมูลทั่วไป (Info)";
-    }
-  };
-
-  const formatRelativeTime = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffSec = Math.floor(diffMs / 1000);
-      const diffMin = Math.floor(diffSec / 60);
-      const diffHour = Math.floor(diffMin / 60);
-      const diffDay = Math.floor(diffHour / 24);
-
-      if (diffSec < 60) return "เมื่อสักครู่";
-      if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
-      if (diffHour < 24) return `${diffHour} ชั่วโมงที่แล้ว`;
-      if (diffDay === 1) return "เมื่อวานนี้";
-      return date.toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "2-digit",
-      });
-    } catch {
-      return dateStr;
-    }
   };
 
   const getTypeIcon = (type: NotificationItem["type"]) => {
@@ -219,14 +158,12 @@ export function NotificationCenter({
   if (!isOpen) return null;
 
   const filteredNotifications = notifications.filter((n) => {
-    const isUnread = !n.isRead || n.isRead === 0 || n.isRead === "0";
+    const isUnread = isNotificationUnread(n.isRead);
     if (filter === "unread") return isUnread;
     return true;
   });
 
-  const unreadCount = notifications.filter(
-    (n) => !n.isRead || n.isRead === 0 || n.isRead === "0"
-  ).length;
+  const unreadCount = notifications.filter((n) => isNotificationUnread(n.isRead)).length;
 
   return (
     <>
@@ -334,7 +271,7 @@ export function NotificationCenter({
             </div>
           ) : (
             filteredNotifications.map((item) => {
-              const isUnread = !item.isRead || item.isRead === 0 || item.isRead === "0";
+              const isUnread = isNotificationUnread(item.isRead);
               return (
                 <div
                   key={item.id}
@@ -360,7 +297,7 @@ export function NotificationCenter({
                         {item.title}
                       </span>
                       <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                        {formatRelativeTime(item.createdAt)}
+                        {formatRelativeThaiTime(item.createdAt)}
                       </span>
                     </div>
                     <p className="text-xs text-slate-300 mt-1 leading-snug line-clamp-2">
@@ -430,10 +367,10 @@ export function NotificationCenter({
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-slate-300">
-                      {getTypeBadgeText(selectedNotification.type)}
+                      {getNotificationBadgeText(selectedNotification.type)}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {formatRelativeTime(selectedNotification.createdAt)}
+                      {formatRelativeThaiTime(selectedNotification.createdAt)}
                     </span>
                   </div>
                   <h3 className="text-sm font-bold text-white mt-1">

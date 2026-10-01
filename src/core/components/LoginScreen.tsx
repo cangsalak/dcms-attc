@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Lock, ArrowRight, ShieldCheck, UserCheck, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { formatFullThaiDate } from "@/core/lib";
 
 export function LoginScreen() {
   const { login } = useAuth();
@@ -24,14 +25,7 @@ export function LoginScreen() {
           hour12: false,
         })
       );
-      setDate(
-        now.toLocaleDateString("th-TH", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      );
+      setDate(formatFullThaiDate(now, { includeTime: false }));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
