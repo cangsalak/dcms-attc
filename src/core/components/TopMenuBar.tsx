@@ -15,6 +15,8 @@ import {
   Shield,
   Lock,
   Layers,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
 import { useAuth } from "../context/AuthContext";
@@ -37,6 +39,8 @@ export function TopMenuBar() {
     minimizeWindow,
     setLanguage,
     openApp,
+    isFullscreen,
+    toggleFullscreen,
   } = useWindowManager();
   const { user, logout } = useAuth();
 
@@ -148,6 +152,27 @@ export function TopMenuBar() {
           title="ตัวตรวจสอบระบบ (System Widgets)"
         >
           <Activity className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Fullscreen Mode Toggle Button (ตัวขยายเต็มหน้าจอ) */}
+        <button
+          onClick={toggleFullscreen}
+          className={`cursor-pointer p-1.5 rounded-lg transition-colors flex items-center justify-center ${
+            isFullscreen
+              ? "bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 shadow-sm shadow-indigo-500/20"
+              : "hover:bg-white/10 text-slate-300 hover:text-white"
+          }`}
+          title={
+            isFullscreen
+              ? "ออกจากโหมดเต็มหน้าจอ (Exit Full Screen)"
+              : "ขยายเต็มหน้าจอ (Full Screen Mode)"
+          }
+        >
+          {isFullscreen ? (
+            <Minimize2 className="w-3.5 h-3.5 text-indigo-300" />
+          ) : (
+            <Maximize2 className="w-3.5 h-3.5" />
+          )}
         </button>
 
         {/* Language Switcher */}

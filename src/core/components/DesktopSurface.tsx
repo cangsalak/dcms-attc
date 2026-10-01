@@ -6,7 +6,7 @@ import { DynamicIcon } from "./IconResolver";
 import { WindowFrame } from "./WindowFrame";
 import { SynologyWidgets } from "./SynologyWidgets";
 import { SynologyAppLauncher } from "./SynologyAppLauncher";
-import { RefreshCw, Image, LayoutGrid, Activity } from "lucide-react";
+import { RefreshCw, Image, LayoutGrid, Activity, Maximize2, Minimize2 } from "lucide-react";
 
 export function DesktopSurface() {
   const {
@@ -17,6 +17,8 @@ export function DesktopSurface() {
     language,
     toggleWidgets,
     setLauncherOpen,
+    isFullscreen,
+    toggleFullscreen,
   } = useWindowManager();
 
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
@@ -189,6 +191,25 @@ export function DesktopSurface() {
           >
             <Image className="w-3.5 h-3.5" />
             <span>เปลี่ยนภาพพื้นหลัง...</span>
+          </button>
+          <button
+            onClick={() => {
+              toggleFullscreen();
+              setContextMenu({ ...contextMenu, visible: false });
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span>ออกจากโหมดเต็มหน้าจอ (Exit Full Screen)</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>ขยายเต็มหน้าจอ (Full Screen Mode)</span>
+              </>
+            )}
           </button>
           <div className="border-t border-white/10 my-1" />
           <button

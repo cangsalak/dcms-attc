@@ -35,6 +35,8 @@ interface WindowManagerContextType {
   updateWindowSize: (windowId: string, size: { width: number; height: number }) => void;
   installDynamicModule: (module: AppModule) => void;
   uninstallModule: (moduleId: string) => void;
+  isFullscreen: boolean;
+  toggleFullscreen: () => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | null>(null);
@@ -52,6 +54,71 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
 
   const toggleWidgets = () => setIsWidgetsOpen((prev) => !prev);
   const setLauncherOpen = (open: boolean) => setIsLauncherOpen(open);
+
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Fullscreen change listener across browsers
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isDocFull = Boolean(
+        document.fullscreenElement ||
+          (document as any).webkitFullscreenElement ||
+          (document as any).mozFullScreenElement ||
+          (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isDocFull);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      const doc = document as any;
+      const docEl = document.documentElement as any;
+
+      const isDocFull = Boolean(
+        doc.fullscreenElement ||
+          doc.webkitFullscreenElement ||
+          doc.mozFullScreenElement ||
+          doc.msFullscreenElement
+      );
+
+      if (!isDocFull) {
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+        } else if (docEl.mozRequestFullScreen) {
+          await docEl.mozRequestFullScreen();
+        } else if (docEl.msRequestFullscreen) {
+          await docEl.msRequestFullscreen();
+        }
+      } else {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.error("Fullscreen toggle failed:", err);
+    }
+  }, []);
 
   const minimizeAll = useCallback(() => {
     setWindows((prev) => prev.map((w) => ({ ...w, isMinimized: true })));
@@ -342,6 +409,8 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         updateWindowSize,
         installDynamicModule,
         uninstallModule,
+        isFullscreen,
+        toggleFullscreen,
       }}
     >
       {children}
