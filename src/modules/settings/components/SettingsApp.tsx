@@ -42,6 +42,7 @@ import {
   Shield,
   AlertCircle,
   RefreshCw,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useWindowManager } from "@/core/context/WindowManagerContext";
 import { useAuth } from "@/core/context/AuthContext";
@@ -603,17 +604,6 @@ export function SettingsApp({ windowId }: { windowId: string }) {
         </button>
 
         <button
-          onClick={() => setActiveTab("notifications")}
-          className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-            activeTab === "notifications"
-              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-              : "text-slate-300 hover:bg-white/5"
-          }`}
-        >
-          <Bell className="w-4 h-4" /> ศูนย์การแจ้งเตือน (Notifications)
-        </button>
-
-        <button
           onClick={() => setActiveTab("datetime")}
           className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
             activeTab === "datetime"
@@ -667,6 +657,18 @@ export function SettingsApp({ windowId }: { windowId: string }) {
         >
           <Info className="w-4 h-4" /> เกี่ยวกับระบบ (About)
         </button>
+
+        {/* Quick Launch Control Panel */}
+        <div className="mt-auto pt-3 border-t border-white/10">
+          <button
+            type="button"
+            onClick={() => openApp("control-panel")}
+            className="cursor-pointer w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/50 hover:to-indigo-600/50 border border-blue-500/30 text-white transition-all shadow"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span className="truncate">เปิดแผงควบคุม (Control Panel)</span>
+          </button>
+        </div>
       </div>
 
       {/* Settings Content */}

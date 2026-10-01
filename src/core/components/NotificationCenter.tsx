@@ -17,6 +17,7 @@ import {
   Clock,
   Calendar,
   Eye,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
 import { formatFullThaiDate, formatRelativeThaiTime } from "@/core/lib/dateFormat";
@@ -331,16 +332,13 @@ export function NotificationCenter({
           <button
             type="button"
             onClick={() => {
-              openApp("settings");
-              window.dispatchEvent(
-                new CustomEvent("dcms-open-settings-tab", { detail: "notifications" })
-              );
+              openApp("control-panel");
               onClose();
             }}
-            className="cursor-pointer text-indigo-300 hover:text-indigo-200 hover:underline flex items-center gap-1.5 transition-colors font-medium text-[11px]"
+            className="cursor-pointer text-cyan-300 hover:text-cyan-200 hover:underline flex items-center gap-1.5 transition-colors font-medium text-[11px]"
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span>ดูประวัติการแจ้งเตือนทั้งหมด (View All)</span>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>ตั้งค่าการแจ้งเตือน (Control Panel)</span>
           </button>
           <span className="text-[10px] text-slate-500 font-mono">
             {notifications.length} รายการ

@@ -3,6 +3,7 @@ import { inventoryModule } from "./inventory/module.config";
 import { billingModule } from "./billing/module.config";
 import { auditLogsModule } from "./audit-logs/module.config";
 import { terminalModule } from "./terminal/module.config";
+import { controlPanelModule } from "./control-panel/module.config";
 
 /**
  * Decoupled Internal Modules Registry
@@ -20,6 +21,7 @@ export const internalExtensionModulesMap: Record<string, AppModule> = {
   billing: billingModule,
   "audit-logs": auditLogsModule,
   terminal: terminalModule,
+  "control-panel": controlPanelModule,
 };
 
 /**

@@ -18,6 +18,7 @@ import {
   Maximize2,
   Minimize2,
   Settings,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
 import { useAuth } from "../context/AuthContext";
@@ -289,6 +290,17 @@ export function TopMenuBar() {
                   >
                     <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
                     <span>โปรไฟล์ส่วนตัว & รหัสผ่าน</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      openApp("control-panel");
+                      setShowUserMenu(false);
+                    }}
+                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/10 text-slate-300 flex items-center gap-2 mb-1 transition-colors"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>แผงควบคุม (Control Panel)</span>
                   </button>
 
                   <button

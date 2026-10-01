@@ -5,6 +5,7 @@ import { appStoreModule } from "@/modules/app-store/module.config";
 import { settingsModule } from "@/modules/settings/module.config";
 import { filesModule } from "@/modules/files/module.config";
 import { terminalModule } from "@/modules/terminal/module.config";
+import { controlPanelModule } from "@/modules/control-panel/module.config";
 import { ExternalAppRunner } from "../components/ExternalAppRunner";
 import { internalExtensionModulesMap } from "@/modules";
 
@@ -12,6 +13,7 @@ import { internalExtensionModulesMap } from "@/modules";
  * Built-in Core System Modules (Mandatory OS System Apps - Default & No install needed)
  */
 export const defaultModules: AppModule[] = [
+  controlPanelModule,
   filesModule,
   usersModule,
   terminalModule,

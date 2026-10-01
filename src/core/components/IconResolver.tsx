@@ -14,6 +14,8 @@ import {
   Boxes,
   Database,
   HelpCircle,
+  SlidersHorizontal,
+  Sliders,
   LucideProps,
 } from "lucide-react";
 
@@ -21,6 +23,8 @@ export const iconMap: Record<string, React.ComponentType<LucideProps>> = {
   users: Users,
   "app-store": LayoutGrid,
   settings: Settings,
+  "control-panel": SlidersHorizontal,
+  sliders: Sliders,
   folder: FolderOpen,
   terminal: Terminal,
   store: ShoppingBag,

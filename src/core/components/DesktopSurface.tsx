@@ -20,6 +20,7 @@ import {
   Settings,
   ExternalLink,
   Monitor,
+  SlidersHorizontal,
 } from "lucide-react";
 import { AppModule } from "../types/module";
 
@@ -342,6 +343,17 @@ export function DesktopSurface() {
               <span>แสดงไอคอนบนเดสก์ท็อป</span>
             </div>
             {showDesktopIcons && <span className="text-cyan-400 font-bold">✓</span>}
+          </button>
+
+          <button
+            onClick={() => {
+              openApp("control-panel");
+              setContextMenu({ ...contextMenu, visible: false });
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+            <span>แผงควบคุม (Control Panel)...</span>
           </button>
 
           <button

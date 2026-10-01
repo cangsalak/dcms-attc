@@ -410,16 +410,40 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
 
   const openApp = useCallback(
     (appId: string) => {
-      const existingWindow = windows.find((w) => w.appId === appId);
+      if (!appId) return;
+
+      // 1. Direct Web URL support
+      if (appId.startsWith("http://") || appId.startsWith("https://")) {
+        window.open(appId, "_blank");
+        return;
+      }
+
+      // 2. Clean prefix if passed with @, #, or /
+      const cleanAppId = appId.replace(/^[@#/]/, "").trim();
+
+      // 3. Focus window if already open
+      const existingWindow = windows.find((w) => w.appId === cleanAppId);
       if (existingWindow) {
         focusWindow(existingWindow.id);
         return;
       }
 
-      const appModule = getModuleById(modules, appId);
-      if (!appModule) return;
+      // 4. Retrieve module from active state, dynamic registry, or decoupled modules
+      const appModule = getModuleById(modules, cleanAppId);
+      if (!appModule) {
+        console.warn(`[DCMS] Module with id "${cleanAppId}" not found.`);
+        return;
+      }
 
-      const newWindowId = `win-${appId}-${Date.now()}`;
+      // Ensure module exists in active state so WindowFrame and taskbar track it
+      setModules((prev) => {
+        if (!prev.some((m) => m.id === appModule.id)) {
+          return [...prev, appModule];
+        }
+        return prev;
+      });
+
+      const newWindowId = `win-${appModule.id}-${Date.now()}`;
       const nextZ = maxZIndex + 1;
       setMaxZIndex(nextZ);
 
