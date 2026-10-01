@@ -192,7 +192,7 @@ export function WindowFrame({ windowState }: { windowState: WindowState }) {
       {/* Window Body (Module Content) */}
       <div className="flex-1 bg-[#120e24] overflow-hidden relative">
         {AppComponent ? (
-          <AppComponent windowId={windowState.id} />
+          <AppComponent windowId={windowState.id} params={windowState.params} />
         ) : (
           <div className="p-8 text-center text-slate-400 text-sm">
             ไม่พบโมดูลที่ติดตั้ง

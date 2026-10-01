@@ -81,7 +81,13 @@ const wallpapers = [
   },
 ];
 
-export function SettingsApp({ windowId }: { windowId: string }) {
+export function SettingsApp({
+  windowId,
+  params,
+}: {
+  windowId: string;
+  params?: { tab?: string };
+}) {
   const { user, updateUser } = useAuth();
   const {
     wallpaper,
@@ -106,7 +112,24 @@ export function SettingsApp({ windowId }: { windowId: string }) {
 
   const [activeTab, setActiveTab] = useState<
     "profile" | "notifications" | "appearance" | "datetime" | "system" | "desktop_dock" | "about"
-  >("datetime");
+  >(() => {
+    if (params?.tab) return params.tab as any;
+    if (typeof window !== "undefined") {
+      const pending = (window as any).__dcms_pending_settings_tab;
+      if (pending) {
+        delete (window as any).__dcms_pending_settings_tab;
+        return pending;
+      }
+    }
+    return "profile";
+  });
+
+  // Watch for dynamic tab changes via windowState params
+  useEffect(() => {
+    if (params?.tab) {
+      setActiveTab(params.tab as any);
+    }
+  }, [params?.tab]);
 
   // Profile management state
   const [profileName, setProfileName] = useState(user?.name || "");

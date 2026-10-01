@@ -26,7 +26,7 @@ interface WindowManagerContextType {
   setWallpaper: (wp: string) => void;
   setLanguage: (lang: "th" | "en") => void;
   setDateFormatConfig: (config: Partial<DateFormatConfig>) => void;
-  openApp: (appId: string) => void;
+  openApp: (appId: string, params?: Record<string, any>) => void;
   closeWindow: (windowId: string) => void;
   minimizeWindow: (windowId: string) => void;
   maximizeWindow: (windowId: string) => void;
@@ -409,7 +409,7 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const openApp = useCallback(
-    (appId: string) => {
+    (appId: string, params?: Record<string, any>) => {
       if (!appId) return;
 
       // 1. Direct Web URL support
@@ -421,9 +421,14 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
       // 2. Clean prefix if passed with @, #, or /
       const cleanAppId = appId.replace(/^[@#/]/, "").trim();
 
-      // 3. Focus window if already open
+      // 3. Focus window if already open and update params
       const existingWindow = windows.find((w) => w.appId === cleanAppId);
       if (existingWindow) {
+        if (params) {
+          setWindows((prev) =>
+            prev.map((w) => (w.id === existingWindow.id ? { ...w, params } : w))
+          );
+        }
         focusWindow(existingWindow.id);
         return;
       }
@@ -467,6 +472,7 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
           height: appModule.defaultSize.height,
         },
         zIndex: nextZ,
+        params,
       };
 
       setWindows((prev) => [...prev, newWindow]);

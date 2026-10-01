@@ -280,7 +280,10 @@ export function TopMenuBar() {
 
                   <button
                     onClick={() => {
-                      openApp("settings");
+                      if (typeof window !== "undefined") {
+                        (window as any).__dcms_pending_settings_tab = "profile";
+                      }
+                      openApp("settings", { tab: "profile" });
                       window.dispatchEvent(
                         new CustomEvent("dcms-open-settings-tab", { detail: "profile" })
                       );

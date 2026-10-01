@@ -24,7 +24,7 @@ export interface AppModule {
   entryType?: "internal" | "external_url";
   url?: string; // For external micro-frontend / web apps
   author?: string;
-  component: React.ComponentType<{ windowId: string }>;
+  component: React.ComponentType<{ windowId: string; params?: any }>;
 }
 
 export interface WindowState {
@@ -41,4 +41,5 @@ export interface WindowState {
     size: { width: number; height: number };
   };
   zIndex: number;
+  params?: Record<string, any>;
 }
