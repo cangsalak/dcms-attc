@@ -16,11 +16,14 @@ import {
   HelpCircle,
   SlidersHorizontal,
   Sliders,
+  User,
   LucideProps,
 } from "lucide-react";
 
 export const iconMap: Record<string, React.ComponentType<LucideProps>> = {
   users: Users,
+  user: User,
+  profile: User,
   "app-store": LayoutGrid,
   settings: Settings,
   "control-panel": SlidersHorizontal,

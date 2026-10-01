@@ -2,10 +2,10 @@ import React from "react";
 import { AppModule } from "../types/module";
 import { usersModule } from "@/modules/users/module.config";
 import { appStoreModule } from "@/modules/app-store/module.config";
-import { settingsModule } from "@/modules/settings/module.config";
 import { filesModule } from "@/modules/files/module.config";
 import { terminalModule } from "@/modules/terminal/module.config";
 import { controlPanelModule } from "@/modules/control-panel/module.config";
+import { profileModule } from "@/modules/profile/module.config";
 import { ExternalAppRunner } from "../components/ExternalAppRunner";
 import { internalExtensionModulesMap } from "@/modules";
 
@@ -18,7 +18,7 @@ export const defaultModules: AppModule[] = [
   usersModule,
   terminalModule,
   appStoreModule,
-  settingsModule,
+  profileModule,
 ];
 
 /**
@@ -114,6 +114,11 @@ export function getModuleById(
   // 3. Search in Decoupled Internal Modules
   if (internalExtensionModulesMap[id]) {
     return internalExtensionModulesMap[id];
+  }
+
+  // 4. Legacy redirect: "settings" -> controlPanelModule
+  if (id === "settings") {
+    return controlPanelModule;
   }
 
   return undefined;

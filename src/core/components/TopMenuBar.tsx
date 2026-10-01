@@ -280,13 +280,7 @@ export function TopMenuBar() {
 
                   <button
                     onClick={() => {
-                      if (typeof window !== "undefined") {
-                        (window as any).__dcms_pending_settings_tab = "profile";
-                      }
-                      openApp("settings", { tab: "profile" });
-                      window.dispatchEvent(
-                        new CustomEvent("dcms-open-settings-tab", { detail: "profile" })
-                      );
+                      openApp("profile");
                       setShowUserMenu(false);
                     }}
                     className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/10 text-slate-300 flex items-center gap-2 mb-1 transition-colors"
@@ -304,17 +298,6 @@ export function TopMenuBar() {
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
                     <span>แผงควบคุม (Control Panel)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      openApp("settings");
-                      setShowUserMenu(false);
-                    }}
-                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/10 text-slate-300 flex items-center gap-2 mb-1 transition-colors"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-slate-400" />
-                    <span>การตั้งค่าระบบ (Settings)</span>
                   </button>
 
                   {/* Lock Screen Action */}

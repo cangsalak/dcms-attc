@@ -290,13 +290,13 @@ export function DesktopSurface() {
 
           <button
             onClick={() => {
-              openApp("settings");
+              openApp("control-panel");
               setAppContextMenu((prev) => ({ ...prev, visible: false }));
             }}
             className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-white/10 text-slate-300 flex items-center gap-2"
           >
-            <Settings className="w-3.5 h-3.5" />
-            <span>จัดการเดสก์ท็อป & ด็อค (Settings)...</span>
+            <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+            <span>จัดการทางลัดในแผงควบคุม (Control Panel)...</span>
           </button>
         </div>
       )}
@@ -358,18 +358,7 @@ export function DesktopSurface() {
 
           <button
             onClick={() => {
-              openApp("settings");
-              setContextMenu({ ...contextMenu, visible: false });
-            }}
-            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>ตั้งค่าเดสก์ท็อป & ด็อค (Desk & Dock)...</span>
-          </button>
-
-          <button
-            onClick={() => {
-              openApp("settings");
+              openApp("control-panel");
               setContextMenu({ ...contextMenu, visible: false });
             }}
             className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"

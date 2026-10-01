@@ -22,7 +22,7 @@ export async function GET() {
         rating,
         created_at as "createdAt"
        FROM marketplace_modules 
-       WHERE id NOT IN ('terminal', 'users', 'files', 'settings', 'app-store', 'control-panel')
+       WHERE id NOT IN ('terminal', 'users', 'files', 'settings', 'app-store', 'control-panel', 'profile')
        ORDER BY created_at ASC`
     );
     return NextResponse.json({ apps: rows });
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       url = "",
     } = body;
 
-    const CORE_IDS = ["terminal", "users", "files", "settings", "app-store", "control-panel"];
+    const CORE_IDS = ["terminal", "users", "files", "settings", "app-store", "control-panel", "profile"];
     if (CORE_IDS.includes(id)) {
       return NextResponse.json(
         { error: "ไม่สามารถใช้ ID เดียวกับโมดูลหลักของระบบได้ (Core Module)" },

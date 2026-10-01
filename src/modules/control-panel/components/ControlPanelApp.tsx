@@ -468,11 +468,11 @@ export function ControlPanelApp({ windowId }: ControlPanelAppProps) {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => openApp("settings")}
+                  onClick={() => openApp("profile")}
                   className="cursor-pointer px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors flex items-center gap-1.5"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>การตั้งค่าส่วนบุคคล</span>
+                  <Users className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>โปรไฟล์ส่วนตัว & บัญชี</span>
                 </button>
               </div>
             </div>
