@@ -21,6 +21,9 @@ export interface AppModule {
   isSystemApp?: boolean; // Cannot be uninstalled if true
   desktopShortcut?: boolean;
   dockShortcut?: boolean;
+  entryType?: "internal" | "external_url";
+  url?: string; // For external micro-frontend / web apps
+  author?: string;
   component: React.ComponentType<{ windowId: string }>;
 }
 

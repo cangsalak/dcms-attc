@@ -5,7 +5,17 @@ export async function GET() {
   try {
     const db = await ensureDatabaseReady();
     const rows = await db.query(
-      `SELECT id, name, version, enabled, installed_at as "installedAt" 
+      `SELECT 
+        id, 
+        name, 
+        version, 
+        enabled, 
+        entry_type as "entryType", 
+        url, 
+        icon_name as "iconName", 
+        color_gradient as "colorGradient", 
+        description, 
+        installed_at as "installedAt" 
        FROM installed_modules 
        ORDER BY installed_at ASC`
     );
@@ -18,7 +28,17 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, version, enabled = true } = body;
+    const {
+      id,
+      name,
+      version,
+      enabled = true,
+      entryType = "internal",
+      url = "",
+      iconName = "store",
+      colorGradient = "from-blue-600 to-indigo-600",
+      description = "",
+    } = body;
 
     if (!id || !name) {
       return NextResponse.json(
@@ -37,19 +57,53 @@ export async function POST(req: Request) {
 
     if (existing && existing.length > 0) {
       await db.execute(
-        "UPDATE installed_modules SET name = ?, version = ?, enabled = ? WHERE id = ?",
-        [name, version || "1.0.0", enabled ? 1 : 0, id]
+        `UPDATE installed_modules 
+         SET name = ?, version = ?, enabled = ?, entry_type = ?, url = ?, icon_name = ?, color_gradient = ?, description = ?
+         WHERE id = ?`,
+        [
+          name,
+          version || "1.0.0",
+          enabled ? 1 : 0,
+          entryType,
+          url,
+          iconName,
+          colorGradient,
+          description,
+          id,
+        ]
       );
     } else {
       await db.execute(
-        "INSERT INTO installed_modules (id, name, version, enabled) VALUES (?, ?, ?, ?)",
-        [id, name, version || "1.0.0", enabled ? 1 : 0]
+        `INSERT INTO installed_modules 
+         (id, name, version, enabled, entry_type, url, icon_name, color_gradient, description) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          name,
+          version || "1.0.0",
+          enabled ? 1 : 0,
+          entryType,
+          url,
+          iconName,
+          colorGradient,
+          description,
+        ]
       );
     }
 
     return NextResponse.json({
       success: true,
-      module: { id, name, version, enabled },
+      module: {
+        id,
+        name,
+        version,
+        enabled,
+        entryType,
+        url,
+        iconName,
+        colorGradient,
+        description,
+      },
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

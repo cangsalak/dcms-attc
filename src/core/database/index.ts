@@ -152,6 +152,135 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
     await db.execute("ALTER TABLE folders ADD COLUMN permission_level VARCHAR(32) DEFAULT 'read_write'");
   } catch {}
 
+  // 5. Marketplace Modules table (for 3rd-party and community apps)
+  const createMarketplaceSql = `CREATE TABLE IF NOT EXISTS marketplace_modules (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    name_th VARCHAR(255),
+    description TEXT,
+    version VARCHAR(32) NOT NULL DEFAULT '1.0.0',
+    category VARCHAR(64) NOT NULL DEFAULT 'custom',
+    icon_name VARCHAR(64) NOT NULL DEFAULT 'store',
+    color_gradient VARCHAR(128) DEFAULT 'from-blue-600 to-indigo-600',
+    author VARCHAR(255) DEFAULT 'Community Developer',
+    size_str VARCHAR(32) DEFAULT 'Web App',
+    entry_type VARCHAR(32) NOT NULL DEFAULT 'internal',
+    url TEXT,
+    rating REAL DEFAULT 5.0,
+    created_at ${isPostgres ? "TIMESTAMPTZ DEFAULT NOW()" : "DATETIME DEFAULT CURRENT_TIMESTAMP"}
+  );`;
+
+  await db.execute(createMarketplaceSql);
+
+  // Migration for installed_modules to support 3rd-party / external web apps
+  try {
+    await db.execute("ALTER TABLE installed_modules ADD COLUMN entry_type VARCHAR(32) DEFAULT 'internal'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE installed_modules ADD COLUMN url TEXT");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE installed_modules ADD COLUMN icon_name VARCHAR(64) DEFAULT 'store'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE installed_modules ADD COLUMN color_gradient VARCHAR(128) DEFAULT 'from-blue-600 to-indigo-600'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE installed_modules ADD COLUMN description TEXT");
+  } catch {}
+
+  // Seed default marketplace modules if empty
+  const countMarketplace = await db.query<{ count: number | string }>(
+    `SELECT COUNT(*) as count FROM marketplace_modules`
+  );
+  if (Number(countMarketplace[0]?.count || 0) === 0) {
+    const defaultApps = [
+      {
+        id: "inventory",
+        name: "Inventory & Stock",
+        name_th: "ระบบจัดการสต็อกและคลังสินค้า",
+        description: "ติดตามสินค้าคงคลัง ล็อตสินค้า การรับเข้า-เบิกออก และแจ้งเตือนสต็อกใกล้หมดแบบเรียลไทม์",
+        version: "1.2.0",
+        category: "business",
+        icon_name: "packages",
+        color_gradient: "from-amber-500 to-orange-600",
+        author: "CoreOS Labs",
+        size_str: "4.2 MB",
+        entry_type: "internal",
+        url: "",
+        rating: 4.9,
+      },
+      {
+        id: "billing",
+        name: "Billing & Invoices",
+        name_th: "ระบบใบเสร็จและใบแจ้งหนี้",
+        description: "ออกใบเสนอราคา ใบเสร็จรับเงิน ใบกำกับภาษี VAT 7% พร้อม QR Code ชำระเงิน",
+        version: "2.0.1",
+        category: "business",
+        icon_name: "document",
+        color_gradient: "from-emerald-500 to-teal-600",
+        author: "FinTech Team",
+        size_str: "5.8 MB",
+        entry_type: "internal",
+        url: "",
+        rating: 4.8,
+      },
+      {
+        id: "audit-logs",
+        name: "Audit & Security Logs",
+        name_th: "ประวัติกิจกรรมและความปลอดภัย",
+        description: "เก็บบันทึกประวัติการเข้าใช้งาน (Audit Trail) พร้อมส่งออก CSV/JSON ตามมาตรฐานความปลอดภัย",
+        version: "1.0.5",
+        category: "tools",
+        icon_name: "security",
+        color_gradient: "from-rose-500 to-red-600",
+        author: "Security Team",
+        size_str: "2.1 MB",
+        entry_type: "internal",
+        url: "",
+        rating: 4.7,
+      },
+      {
+        id: "terminal",
+        name: "System Terminal",
+        name_th: "เทอร์มินัลจัดการระบบ",
+        description: "คอนโซลคอมมานด์ไลน์และเชลล์อินเตอร์แอคทีฟสำหรับตรวจสอบสถานะ Node.js, PM2 และฐานข้อมูล",
+        version: "0.9.4",
+        category: "tools",
+        icon_name: "terminal",
+        color_gradient: "from-slate-700 to-zinc-900",
+        author: "SysOps",
+        size_str: "1.5 MB",
+        entry_type: "internal",
+        url: "",
+        rating: 5.0,
+      },
+    ];
+
+    for (const app of defaultApps) {
+      await db.execute(
+        `INSERT INTO marketplace_modules 
+         (id, name, name_th, description, version, category, icon_name, color_gradient, author, size_str, entry_type, url, rating)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          app.id,
+          app.name,
+          app.name_th,
+          app.description,
+          app.version,
+          app.category,
+          app.icon_name,
+          app.color_gradient,
+          app.author,
+          app.size_str,
+          app.entry_type,
+          app.url,
+          app.rating,
+        ]
+      );
+    }
+  }
+
   // Seed default admin user if empty
   const countUsers = await db.query<{ count: number | string }>(
     `SELECT COUNT(*) as count FROM users`

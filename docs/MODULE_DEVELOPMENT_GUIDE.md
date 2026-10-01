@@ -27,17 +27,34 @@ src/
 │   │   ├── auth.ts                 # ตรวจสอบสิทธิ์และผู้ใช้ปัจจุบัน
 │   │   └── dateFormat.ts           # แปลงวันที่ภาษาไทย พ.ศ. 100%
 │   └── registry/
-│       └── moduleRegistry.ts       # จุดลงทะเบียนโมดูลในระบบ Desktop
+│       └── module-registry.ts      # Core Dynamic Plugin Registry (ไม่ผูกติดโมดูลเฉพาะ)
 │
-└── modules/                        # โฟลเดอร์สำหรับโมดูลปลั๊กอินทั้งหมด
+└── modules/                        # โฟลเดอร์สำหรับโมดูลปลั๊กอินอิสระ
+    ├── index.ts                    # จุดรวมโมดูลภายใน (Decoupled Extension Map)
     ├── files/                      # โมดูลจัดการไฟล์ (File Station)
     ├── users/                      # โมดูลจัดการผู้ใช้งาน (Users Module)
-    └── <your_new_module>/          # โมดูลใหม่ที่สร้างขึ้น
+    └── <your_new_module>/          # โมดูลใหม่ที่ผู้อื่นเขียนขึ้น
         ├── components/
         │   └── YourModuleApp.tsx   # หน้าหลักของโมดูล (ใช้ ModuleLayout)
-        ├── services/               # Logic การเรียก API
+        ├── module.config.ts        # นิยาม AppModule
         └── types.ts                # TypeScript Interfaces
 ```
+
+### 🌟 2 รูปแบบในการเพิ่ม App ใหม่โดยผู้อื่น (2 Ways to Add 3rd-Party Apps)
+
+ระบบ DCMS ได้รับการออกแบบให้แยกขาดจากกัน (Decoupled Architecture) เพื่อให้ผู้อื่นสามารถพัฒนาและเพิ่มแอปพลิเคชันได้ 2 วิธี:
+
+#### วิธีที่ 1: Internal React Module (เขียนด้วย Next.js / React ภายใน)
+- สร้างโฟลเดอร์ใหม่ใน `src/modules/<app_name>/`
+- ใช้คอมโพเนนต์มาตรฐาน `@/core/components/ui/ModuleLayout`
+- นำโมดูลไปลงทะเบียนใน `src/modules/index.ts`
+- **ข้อดี**: ลื่นไหล ไร้รอยต่อ ใช้ธีมและหน้าต่างของ OS โดยตรง และไม่ต้องแก้ไขไฟล์ใน `src/core/` แม้แต่ไฟล์เดียว
+
+#### วิธีที่ 2: External Web App / Micro-Frontend (เขียนด้วยภาษา/เฟรมเวิร์กใดก็ได้!)
+- นักพัฒนาภายนอกสามารถเขียนแอปด้วย **Vue, React, Svelte, Angular, Python FastAPI/Streamlit, Go, Node.js หรือ PHP**
+- รันเซิร์ฟเวอร์หรือโฮสต์แอปพลิเคชันไว้ที่ URL ปลายทาง (เช่น `http://localhost:8080` หรือ `https://app.company.com`)
+- กดปุ่ม **"เพิ่มแอปภายนอก (Add 3rd-Party App)"** ใน **App Store** กรอกชื่อและ URL
+- ระบบจะสร้างหน้าต่าง Native Desktop OS ให้ทันทีผ่าน `ExternalAppRunner` โดยมี Address Bar, ปุ่มรีเฟรช, ปุ่มเปิดแท็บใหม่, และสภาพแวดล้อม Isolated Sandbox 100%
 
 ---
 

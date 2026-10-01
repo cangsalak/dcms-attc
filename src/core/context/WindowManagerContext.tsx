@@ -2,7 +2,13 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { AppModule, WindowState } from "../types/module";
-import { defaultModules, getModuleById, allAvailableModulesMap } from "../registry/module-registry";
+import {
+  defaultModules,
+  getModuleById,
+  createExternalAppModule,
+  registerDynamicModule,
+  unregisterDynamicModule,
+} from "../registry/module-registry";
 import { DateFormatConfig, defaultDateConfig } from "../lib/dateFormat";
 
 interface WindowManagerContextType {
@@ -75,8 +81,17 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         const res = await fetch("/api/modules");
         if (res.ok) {
           const data = await res.json();
-          const installedList: Array<{ id: string; name: string; version: string; enabled: boolean }> =
-            data.modules || [];
+          const installedList: Array<{
+            id: string;
+            name: string;
+            version: string;
+            enabled: boolean;
+            entryType?: "internal" | "external_url";
+            url?: string;
+            iconName?: string;
+            colorGradient?: string;
+            description?: string;
+          }> = data.modules || [];
 
           if (installedList.length > 0) {
             setModules((prev) => {
@@ -85,9 +100,23 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
 
               for (const item of installedList) {
                 if (!currentIds.has(item.id) && item.enabled) {
-                  const mod = allAvailableModulesMap[item.id];
-                  if (mod) {
-                    modulesToAdd.push(mod);
+                  if (item.entryType === "external_url" && item.url) {
+                    const extMod = createExternalAppModule({
+                      id: item.id,
+                      name: item.name,
+                      url: item.url,
+                      iconName: item.iconName || "globe",
+                      colorGradient: item.colorGradient || "from-blue-600 to-indigo-600",
+                      description: item.description || "",
+                      version: item.version,
+                    });
+                    registerDynamicModule(extMod);
+                    modulesToAdd.push(extMod);
+                  } else {
+                    const mod = getModuleById(prev, item.id);
+                    if (mod) {
+                      modulesToAdd.push(mod);
+                    }
                   }
                 }
               }
@@ -249,6 +278,7 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
   );
 
   const installDynamicModule = useCallback((newModule: AppModule) => {
+    registerDynamicModule(newModule);
     setModules((prev) => {
       if (prev.some((m) => m.id === newModule.id)) return prev;
       return [...prev, newModule];
@@ -263,12 +293,18 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         name: newModule.name,
         version: newModule.version,
         enabled: true,
+        entryType: newModule.entryType || "internal",
+        url: newModule.url || "",
+        iconName: newModule.iconName || "store",
+        colorGradient: newModule.colorGradient || "from-blue-600 to-indigo-600",
+        description: newModule.description || "",
       }),
     }).catch((err) => console.error("Error saving installed module:", err));
   }, []);
 
   const uninstallModule = useCallback(
     (moduleId: string) => {
+      unregisterDynamicModule(moduleId);
       setWindows((prev) => prev.filter((w) => w.appId !== moduleId));
       setModules((prev) => prev.filter((m) => m.id !== moduleId || m.isSystemApp));
 
