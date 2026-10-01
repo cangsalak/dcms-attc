@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Settings,
   Image as ImageIcon,
@@ -15,6 +15,12 @@ import {
   Sparkles,
   Monitor,
   RotateCcw,
+  Upload,
+  Plus,
+  Trash2,
+  FolderOpen,
+  Link as LinkIcon,
+  Loader2,
 } from "lucide-react";
 import { useWindowManager } from "@/core/context/WindowManagerContext";
 import { formatCustomDateTime } from "@/core/lib/dateFormat";
@@ -59,6 +65,9 @@ export function SettingsApp({ windowId }: { windowId: string }) {
     showDesktopIcons,
     toggleShowDesktopIcons,
     resetShortcutsToDefault,
+    customWallpapers,
+    addCustomWallpaper,
+    removeCustomWallpaper,
   } = useWindowManager();
 
   const [activeTab, setActiveTab] = useState<
@@ -66,6 +75,90 @@ export function SettingsApp({ windowId }: { windowId: string }) {
   >("datetime");
 
   const [now, setNow] = useState(new Date());
+
+  // Wallpaper Upload & Custom Wallpaper states
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingWallpaper, setIsUploadingWallpaper] = useState(false);
+  const [wallpaperUploadError, setWallpaperUploadError] = useState("");
+  const [fileStationImages, setFileStationImages] = useState<
+    Array<{ id: string; url: string; originalName: string }>
+  >([]);
+  const [isLoadingFileStationImages, setIsLoadingFileStationImages] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [showUrlInput, setShowUrlInput] = useState(false);
+
+  const fetchFileStationImages = async () => {
+    setIsLoadingFileStationImages(true);
+    try {
+      const res = await fetch("/api/upload?folderId=all");
+      if (res.ok) {
+        const data = await res.json();
+        const images = (data.files || []).filter(
+          (f: any) =>
+            f.mimeType?.startsWith("image/") ||
+            /\.(png|jpe?g|webp|gif|svg)$/i.test(f.filename || f.originalName)
+        );
+        setFileStationImages(images);
+      }
+    } catch (err) {
+      console.error("Failed to load file station images:", err);
+    } finally {
+      setIsLoadingFileStationImages(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "appearance") {
+      fetchFileStationImages();
+    }
+  }, [activeTab]);
+
+  const handleWallpaperUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setWallpaperUploadError("กรุณาเลือกไฟล์รูปภาพเท่านั้น (PNG, JPG, WebP, GIF)");
+      return;
+    }
+
+    setIsUploadingWallpaper(true);
+    setWallpaperUploadError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folderId", "root");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "เกิดข้อผิดพลาดในการอัปโหลดภาพ");
+      }
+
+      if (data.file?.url) {
+        addCustomWallpaper(data.file.url, data.file.originalName || file.name);
+        fetchFileStationImages();
+      }
+    } catch (err: any) {
+      setWallpaperUploadError(err.message || "อัปโหลดภาพไม่สำเร็จ");
+    } finally {
+      setIsUploadingWallpaper(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleAddWallpaperUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!urlInput.trim()) return;
+    addCustomWallpaper(urlInput.trim(), "Web Wallpaper");
+    setUrlInput("");
+    setShowUrlInput(false);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -540,39 +633,245 @@ export function SettingsApp({ windowId }: { windowId: string }) {
 
         {/* Tab 2: Appearance (Wallpapers) */}
         {activeTab === "appearance" && (
-          <div>
-            <h2 className="text-base font-bold text-white mb-1">ภาพพื้นหลังหน้าจอเดสก์ท็อป</h2>
-            <p className="text-xs text-slate-400 mb-6">
-              เลือกธีมสีและวอลเปเปอร์ที่คุณต้องการสำหรับหน้าจอ Desktop OS
-            </p>
+          <div className="space-y-6 max-w-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-white mb-1">
+                  ภาพพื้นหลังหน้าจอเดสก์ท็อป (Desktop Wallpapers)
+                </h2>
+                <p className="text-xs text-slate-400">
+                  เลือกธีมสี หรืออัปโหลดภาพถ่ายของคุณเองเพื่อตั้งเป็นภาพพื้นหลังเดสก์ท็อป
+                </p>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {wallpapers.map((wp) => {
-                const isSelected = wallpaper === wp.id;
-                return (
-                  <div
-                    key={wp.id}
-                    onClick={() => setWallpaper(wp.id)}
-                    className={`cursor-pointer p-3 rounded-2xl border transition-all ${
-                      isSelected
-                        ? "border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/20"
-                        : "border-white/10 hover:border-white/20 bg-white/[0.02]"
-                    }`}
-                  >
-                    <div
-                      className={`h-28 rounded-xl bg-gradient-to-br ${wp.preview} border border-white/10 relative overflow-hidden mb-2`}
-                    >
-                      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md">
-                          <Check className="w-3.5 h-3.5" />
+              {/* Upload & URL Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleWallpaperUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingWallpaper}
+                  className="cursor-pointer px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
+                >
+                  {isUploadingWallpaper ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>กำลังอัปโหลด...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>อัปโหลดภาพใหม่</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowUrlInput(!showUrlInput)}
+                  className="cursor-pointer px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-all"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  <span>ใส่ลิงก์ URL</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {wallpaperUploadError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
+                <span>{wallpaperUploadError}</span>
+                <button
+                  type="button"
+                  onClick={() => setWallpaperUploadError("")}
+                  className="text-rose-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* URL Input Form */}
+            {showUrlInput && (
+              <form
+                onSubmit={handleAddWallpaperUrl}
+                className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center gap-2 animate-in fade-in duration-100"
+              >
+                <LinkIcon className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
+                <input
+                  type="url"
+                  placeholder="วางลิงก์รูปภาพ เช่น https://images.unsplash.com/..."
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="flex-1 bg-transparent border-0 text-white placeholder-slate-500 text-xs focus:outline-none"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={!urlInput.trim()}
+                  className="cursor-pointer px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-50"
+                >
+                  นำมาใช้
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowUrlInput(false)}
+                  className="cursor-pointer px-2 py-1 text-slate-400 hover:text-white text-xs"
+                >
+                  ยกเลิก
+                </button>
+              </form>
+            )}
+
+            {/* Custom Uploaded Wallpapers (If any) */}
+            {customWallpapers.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>ภาพที่คุณอัปโหลดไว้ ({customWallpapers.length})</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {customWallpapers.map((wp) => {
+                    const isSelected = wallpaper === wp.url || wallpaper === wp.id;
+                    return (
+                      <div
+                        key={wp.id}
+                        className={`group relative rounded-2xl border transition-all overflow-hidden cursor-pointer ${
+                          isSelected
+                            ? "border-indigo-500 ring-2 ring-indigo-500/30 shadow-lg shadow-indigo-500/20"
+                            : "border-white/10 hover:border-white/25 bg-white/[0.02]"
+                        }`}
+                        onClick={() => setWallpaper(wp.url)}
+                      >
+                        <div
+                          className="h-28 bg-cover bg-center relative"
+                          style={{ backgroundImage: `url("${wp.url}")` }}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeCustomWallpaper(wp.id);
+                            }}
+                            className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-md"
+                            title="ลบภาพนี้ออกจากรายการ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
-                    </div>
-                    <div className="text-xs font-medium text-white">{wp.name}</div>
+                        <div className="p-2.5 bg-black/40 border-t border-white/5 flex items-center justify-between">
+                          <span className="text-xs font-medium text-white truncate max-w-[130px]">
+                            {wp.name}
+                          </span>
+                          {isSelected && (
+                            <span className="text-[10px] text-cyan-400 font-semibold">
+                              ใช้งานอยู่
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Photos from File Station */}
+            {fileStationImages.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>เลือกจากคลังรูปภาพใน File Station ({fileStationImages.length})</span>
                   </div>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={fetchFileStationImages}
+                    className="cursor-pointer text-[11px] text-slate-400 hover:text-white"
+                  >
+                    รีเฟรช
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {fileStationImages.slice(0, 8).map((file) => {
+                    const isSelected = wallpaper === file.url;
+                    return (
+                      <div
+                        key={file.id}
+                        onClick={() => {
+                          addCustomWallpaper(file.url, file.originalName);
+                        }}
+                        className={`group relative rounded-xl border transition-all overflow-hidden cursor-pointer ${
+                          isSelected
+                            ? "border-cyan-500 ring-2 ring-cyan-500/30 shadow-md"
+                            : "border-white/10 hover:border-white/30 bg-black/30"
+                        }`}
+                        title={file.originalName}
+                      >
+                        <div
+                          className="h-20 bg-cover bg-center relative"
+                          style={{ backgroundImage: `url("${file.url}")` }}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-cyan-500 text-white flex items-center justify-center shadow-md">
+                              <Check className="w-3 h-3" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-1.5 bg-black/50 truncate text-[10px] text-slate-300">
+                          {file.originalName}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Default System Color Gradients */}
+            <div className="space-y-3">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                ธีมสีระบบ (Default Gradients)
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {wallpapers.map((wp) => {
+                  const isSelected = wallpaper === wp.id;
+                  return (
+                    <div
+                      key={wp.id}
+                      onClick={() => setWallpaper(wp.id)}
+                      className={`cursor-pointer p-3 rounded-2xl border transition-all ${
+                        isSelected
+                          ? "border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/20"
+                          : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+                      }`}
+                    >
+                      <div
+                        className={`h-24 rounded-xl bg-gradient-to-br ${wp.preview} border border-white/10 relative overflow-hidden mb-2`}
+                      >
+                        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                            <Check className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs font-medium text-white">{wp.name}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

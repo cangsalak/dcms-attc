@@ -49,6 +49,9 @@ interface WindowManagerContextType {
   setShowDesktopIcons: (show: boolean) => void;
   toggleShowDesktopIcons: () => void;
   resetShortcutsToDefault: () => void;
+  customWallpapers: Array<{ id: string; url: string; name: string }>;
+  addCustomWallpaper: (url: string, name?: string) => void;
+  removeCustomWallpaper: (id: string) => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | null>(null);
@@ -140,6 +143,9 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
   const [desktopShortcuts, setDesktopShortcuts] = useState<Record<string, boolean>>({});
   const [dockShortcuts, setDockShortcuts] = useState<Record<string, boolean>>({});
   const [showDesktopIcons, setShowDesktopIconsState] = useState<boolean>(true);
+  const [customWallpapers, setCustomWallpapers] = useState<
+    Array<{ id: string; url: string; name: string }>
+  >([]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -161,6 +167,9 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
 
       const savedShowDesk = localStorage.getItem("dcms_show_desktop_icons");
       if (savedShowDesk !== null) setShowDesktopIconsState(savedShowDesk === "true");
+
+      const savedCustomWp = localStorage.getItem("dcms_custom_wallpapers");
+      if (savedCustomWp) setCustomWallpapers(JSON.parse(savedCustomWp));
     } catch {
       // Ignore
     }
@@ -338,6 +347,45 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
       localStorage.setItem("dcms_wallpaper", wp);
     } catch {}
   };
+
+  const addCustomWallpaper = useCallback((url: string, name?: string) => {
+    const newWp = {
+      id: url,
+      url,
+      name: name || "ภาพพื้นหลังที่อัปโหลด",
+    };
+    setCustomWallpapers((prev) => {
+      const filtered = prev.filter((p) => p.url !== url && p.id !== url);
+      const updated = [newWp, ...filtered];
+      try {
+        localStorage.setItem("dcms_custom_wallpapers", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    setWallpaperState(url);
+    try {
+      localStorage.setItem("dcms_wallpaper", url);
+    } catch {}
+  }, []);
+
+  const removeCustomWallpaper = useCallback((id: string) => {
+    setCustomWallpapers((prev) => {
+      const updated = prev.filter((p) => p.id !== id && p.url !== id);
+      try {
+        localStorage.setItem("dcms_custom_wallpapers", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    setWallpaperState((curr) => {
+      if (curr === id) {
+        try {
+          localStorage.setItem("dcms_wallpaper", "dcms-purple");
+        } catch {}
+        return "dcms-purple";
+      }
+      return curr;
+    });
+  }, []);
 
   const setDateFormatConfig = (partial: Partial<DateFormatConfig>) => {
     setDateFormatState((prev) => {
@@ -545,6 +593,9 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         setShowDesktopIcons,
         toggleShowDesktopIcons,
         resetShortcutsToDefault,
+        customWallpapers,
+        addCustomWallpaper,
+        removeCustomWallpaper,
       }}
     >
       {children}

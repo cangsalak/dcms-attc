@@ -87,6 +87,14 @@ export function DesktopSurface() {
     }
   };
 
+  const isCustomImage =
+    wallpaper.startsWith("/uploads/") ||
+    wallpaper.startsWith("http://") ||
+    wallpaper.startsWith("https://") ||
+    wallpaper.startsWith("data:") ||
+    wallpaper.includes("/") ||
+    wallpaper.includes(".");
+
   const wallpaperClass =
     wallpaper === "cyber-blue"
       ? "from-[#080e22] via-[#0d1e3d] to-[#040817]"
@@ -100,8 +108,24 @@ export function DesktopSurface() {
     <div
       onClick={handleDesktopClick}
       onContextMenu={handleContextMenu}
-      className={`relative w-full h-[calc(100vh-32px)] overflow-hidden bg-gradient-to-b ${wallpaperClass} transition-colors duration-500`}
+      style={
+        isCustomImage
+          ? {
+              backgroundImage: `url("${wallpaper}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }
+          : undefined
+      }
+      className={`relative w-full h-[calc(100vh-32px)] overflow-hidden ${
+        isCustomImage ? "bg-[#0b0819]" : `bg-gradient-to-b ${wallpaperClass}`
+      } transition-all duration-500`}
     >
+      {/* If custom image wallpaper, add subtle ambient overlay */}
+      {isCustomImage && (
+        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+      )}
       {/* Abstract Curved Wave Lines */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none opacity-30"
