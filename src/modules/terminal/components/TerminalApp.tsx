@@ -10,6 +10,9 @@ import {
   Users,
   Copy,
   Check,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
 } from "lucide-react";
 import {
   ModuleContainer,
@@ -17,6 +20,7 @@ import {
   ModuleButton,
   ModuleFooter,
 } from "@/core/components/ui/ModuleLayout";
+import { useAuth } from "@/core/context/AuthContext";
 
 interface CommandHistory {
   command: string;
@@ -24,6 +28,10 @@ interface CommandHistory {
 }
 
 export function TerminalApp({ windowId }: { windowId: string }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Super Admin" || user?.role === "Admin";
+  const username = user?.email ? user.email.split("@")[0] : "admin";
+
   const [history, setHistory] = useState<CommandHistory[]>([
     {
       command: "welcome",
@@ -35,8 +43,13 @@ export function TerminalApp({ windowId }: { windowId: string }) {
           <div className="text-slate-400">
             ระบบปฏิบัติการเว็บเดสก์ท็อป Synology DSM Style Architecture
           </div>
+          <div className="text-xs text-indigo-300">
+            บัญชีปัจจุบัน: <span className="font-semibold text-white">{user?.name || "ผู้ดูแลระบบ"}</span>{" "}
+            (บทบาท: <span className="font-semibold text-amber-300">{user?.role || "Super Admin"}</span>)
+          </div>
           <div className="text-slate-500 text-xs">
-            พิมพ์ <span className="text-amber-400 font-mono">help</span> เพื่อดูคำสั่งทั้งหมดที่สามารถใช้งานได้
+            พิมพ์ <span className="text-amber-400 font-mono">help</span> เพื่อดูคำสั่งทั้งหมด หรือพิมพ์{" "}
+            <span className="text-emerald-400 font-mono">security</span> เพื่อตรวจสอบความปลอดภัยระบบ
           </div>
         </div>
       ),
@@ -74,6 +87,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
           <div className="space-y-1 text-slate-300">
             <div className="text-cyan-400 font-bold mb-1">คำสั่งที่รองรับใน DCMS Terminal:</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div><span className="text-emerald-400 font-mono font-bold">security</span> / <span className="text-emerald-400 font-mono font-bold">audit</span> - ตรวจสอบความปลอดภัย & ช่องโหว่ (เฉพาะ Admin)</div>
               <div><span className="text-amber-400 font-mono">help</span> - แสดงรายการคำสั่งทั้งหมด</div>
               <div><span className="text-amber-400 font-mono">status</span> / <span className="text-amber-400 font-mono">sysinfo</span> - รายงานสถานะเครื่องและ RAM</div>
               <div><span className="text-amber-400 font-mono">db</span> - รายงานสถานะการเชื่อมต่อฐานข้อมูล</div>
@@ -87,6 +101,136 @@ export function TerminalApp({ windowId }: { windowId: string }) {
             </div>
           </div>
         );
+        break;
+
+      case "security":
+      case "audit":
+      case "sec-check":
+      case "check-sec":
+        // Strict Role Check for Security Audit
+        if (!isAdmin) {
+          output = (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-1.5 my-1.5">
+              <div className="flex items-center gap-2 font-bold text-rose-400">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>[ACCESS DENIED] ไม่อนุญาตให้เข้าถึงระบบตรวจสอบความปลอดภัย</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                คำสั่งตรวจสอบความปลอดภัยของระบบ (Security Audit) ถูกจำกัดสิทธิ์เฉพาะผู้ใช้งานระดับ{" "}
+                <span className="font-bold text-white underline">Super Admin</span> หรือ{" "}
+                <span className="font-bold text-white underline">Admin</span> เท่านั้น
+              </p>
+              <div className="text-[11px] text-slate-400 pt-1 border-t border-rose-500/20">
+                บัญชีปัจจุบัน: <span className="text-indigo-300 font-mono">{user?.name || "ไม่ทราบชื่อ"}</span> | บทบาท:{" "}
+                <span className="text-amber-300 font-mono font-bold">{user?.role || "Member"}</span>
+              </div>
+            </div>
+          );
+          break;
+        }
+
+        try {
+          const res = await fetch("/api/security/audit");
+          const data = await res.json();
+
+          if (!res.ok) {
+            output = (
+              <div className="text-rose-400 font-mono p-2 bg-rose-500/10 rounded-lg border border-rose-500/20">
+                [ERROR] {data.error || "เกิดข้อผิดพลาดในการตรวจสอบความปลอดภัย"}
+              </div>
+            );
+            break;
+          }
+
+          output = (
+            <div className="space-y-3 my-2 font-sans select-text">
+              {/* Security Header Banner */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/70 via-[#181330] to-indigo-950/70 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">
+                      DCMS Core OS Security Audit Report
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      ผู้ตรวจสอบ: <span className="text-cyan-300 font-medium">{data.auditedBy}</span>{" "}
+                      (สิทธิ์: <span className="text-emerald-400 font-semibold">{data.auditorRole}</span>)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wider">Overall Security</div>
+                  <div className="text-2xl font-black text-emerald-400 font-mono">
+                    {data.grade} <span className="text-xs font-semibold text-slate-300">({data.securityScore}/100)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary Badges */}
+              <div className="flex items-center gap-2 text-xs font-mono flex-wrap">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-semibold">
+                  ✓ ผ่าน: {data.summary.passed} รายการ
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                  ⚠ แจ้งเตือน: {data.summary.warning} รายการ
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/25">
+                  ✕ ล้มเหลว: {data.summary.failed} รายการ
+                </span>
+              </div>
+
+              {/* Checks Table */}
+              <div className="border border-white/10 rounded-xl overflow-hidden bg-black/40 text-xs">
+                <div className="grid grid-cols-12 bg-white/5 p-2.5 font-semibold text-slate-400 text-[11px] border-b border-white/10">
+                  <div className="col-span-2 text-center font-mono">สถานะ</div>
+                  <div className="col-span-4">หัวข้อตรวจสอบ</div>
+                  <div className="col-span-1 text-center font-mono">ระดับ</div>
+                  <div className="col-span-5">ผลการวิเคราะห์และความปลอดภัย</div>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {data.checks.map((c: any) => (
+                    <div
+                      key={c.id}
+                      className="grid grid-cols-12 p-2.5 items-center text-[11px] hover:bg-white/[0.02] transition-colors"
+                    >
+                      <div className="col-span-2 text-center font-mono font-bold">
+                        {c.status === "PASS" ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            [PASS]
+                          </span>
+                        ) : c.status === "WARN" ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            [WARN]
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                            [FAIL]
+                          </span>
+                        )}
+                      </div>
+                      <div className="col-span-4 font-medium text-white font-mono truncate pr-2">
+                        {c.title}
+                      </div>
+                      <div className="col-span-1 text-center font-mono">
+                        <span className="text-[9px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                          {c.severity}
+                        </span>
+                      </div>
+                      <div className="col-span-5 text-slate-300 leading-relaxed">
+                        {c.details}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        } catch {
+          output = <div className="text-rose-400">ไม่สามารถเชื่อมต่อระบบตรวจสอบความปลอดภัยได้</div>;
+        }
         break;
 
       case "clear":
@@ -147,7 +291,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
             <div className="text-purple-400 font-bold">--- ข้อมูลฐานข้อมูล (Database Engine) ---</div>
             <div>• ไดอะเลกต์ (Dialect): <span className="text-amber-300 font-mono">SQLite (Multi-DB Ready: SQLite / MySQL / PostgreSQL)</span></div>
             <div>• ตำแหน่งจัดเก็บ: <span className="text-cyan-300 font-mono">./data/dcms.sqlite</span></div>
-            <div>• ตารางหลัก (Tables): <span className="text-slate-300 font-mono">users, installed_modules, files, folders</span></div>
+            <div>• ตารางหลัก (Tables): <span className="text-slate-300 font-mono">users, installed_modules, marketplace_modules, files, folders</span></div>
             <div>• สถานะการเชื่อมต่อ: <span className="text-emerald-400 font-bold">HEALTHY (Auto-migrated & Ready)</span></div>
           </div>
         );
@@ -180,7 +324,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
               </div>
             );
           } else {
-            output = <div className="text-slate-400">ไม่พบรายชื่อผู้ใช้งาน</div>;
+            output = <div className="text-slate-400">{data.error || "ไม่พบรายชื่อผู้ใช้งาน"}</div>;
           }
         } catch {
           output = <div className="text-rose-400">เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้</div>;
@@ -263,7 +407,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
     const text = history
       .map(
         (h) =>
-          `admin@dcms:~$ ${h.command}\n${
+          `${username}@dcms:~$ ${h.command}\n${
             typeof h.output === "string" ? h.output : "[Command Output]"
           }`
       )
@@ -279,6 +423,23 @@ export function TerminalApp({ windowId }: { windowId: string }) {
       <ModuleToolbar
         leftActions={
           <>
+            <ModuleButton
+              onClick={() => runCommand("security")}
+              variant="primary"
+              icon={isAdmin ? ShieldCheck : Lock}
+              className={
+                isAdmin
+                  ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30"
+                  : "bg-slate-800 text-slate-400 opacity-60"
+              }
+              title={
+                isAdmin
+                  ? "ตรวจสอบความปลอดภัยและช่องโหว่ของระบบ"
+                  : "สงวนสิทธิ์เฉพาะ Super Admin หรือ Admin"
+              }
+            >
+              ตรวจสอบความปลอดภัย (Security)
+            </ModuleButton>
             <ModuleButton
               onClick={() => runCommand("status")}
               variant="secondary"
@@ -338,7 +499,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
           {history.map((item, idx) => (
             <div key={idx} className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-emerald-400 font-bold">admin@dcms:~$</span>
+                <span className="text-emerald-400 font-bold">{username}@dcms:~$</span>
                 <span className="text-white font-medium">{item.command}</span>
               </div>
               <div className="pl-4 text-slate-300 leading-relaxed">
@@ -349,7 +510,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
 
           {/* Active Prompt Line */}
           <div className="flex items-center gap-2 pt-1">
-            <span className="text-emerald-400 font-bold shrink-0">admin@dcms:~$</span>
+            <span className="text-emerald-400 font-bold shrink-0">{username}@dcms:~$</span>
             <input
               ref={inputRef}
               type="text"
@@ -359,7 +520,7 @@ export function TerminalApp({ windowId }: { windowId: string }) {
               autoFocus
               spellCheck={false}
               className="flex-1 bg-transparent border-none outline-none text-white font-mono text-xs caret-cyan-400 placeholder-slate-600"
-              placeholder="พิมพ์คำสั่ง เช่น help, status, db, users, modules..."
+              placeholder="พิมพ์ security, help, status, db, users, modules..."
             />
           </div>
           <div ref={bottomRef} />
@@ -368,8 +529,8 @@ export function TerminalApp({ windowId }: { windowId: string }) {
 
       {/* Footer */}
       <ModuleFooter
-        leftContent="TTY: /dev/pts/1 (Interactive Shell)"
-        rightStatus="Session Online (UTF-8)"
+        leftContent={`TTY: /dev/pts/1 • ผู้ใช้งาน: ${user?.name || "admin"} (${user?.role || "Super Admin"})`}
+        rightStatus={isAdmin ? "Security Audit: Enabled" : "Security Audit: Restricted"}
       />
     </ModuleContainer>
   );

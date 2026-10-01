@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ensureDatabaseReady } from "@/core/database";
+import { getSessionUser } from "@/core/lib/auth";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("dcms_session");
+    const sessionData = await getSessionUser();
 
-    if (!sessionCookie || !sessionCookie.value) {
+    if (!sessionData || !sessionData.id) {
       return NextResponse.json({ authenticated: false, user: null });
     }
-
-    const sessionData = JSON.parse(sessionCookie.value);
 
     // Verify user in database
     const db = await ensureDatabaseReady();
@@ -21,6 +19,7 @@ export async function GET() {
     );
 
     if (rows.length === 0 || rows[0].status === "suspended") {
+      const cookieStore = await cookies();
       cookieStore.delete("dcms_session");
       return NextResponse.json({ authenticated: false, user: null });
     }
