@@ -32,6 +32,16 @@ import {
   CheckCircle2,
   Save,
   FileText,
+  Bell,
+  Search,
+  Filter,
+  CheckCheck,
+  Eye,
+  Send,
+  ExternalLink,
+  Shield,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { useWindowManager } from "@/core/context/WindowManagerContext";
 import { useAuth } from "@/core/context/AuthContext";
@@ -81,10 +91,11 @@ export function SettingsApp({ windowId }: { windowId: string }) {
     customWallpapers,
     addCustomWallpaper,
     removeCustomWallpaper,
+    openApp,
   } = useWindowManager();
 
   const [activeTab, setActiveTab] = useState<
-    "profile" | "appearance" | "datetime" | "system" | "desktop_dock" | "about"
+    "profile" | "notifications" | "appearance" | "datetime" | "system" | "desktop_dock" | "about"
   >("datetime");
 
   // Profile management state
@@ -109,14 +120,164 @@ export function SettingsApp({ windowId }: { windowId: string }) {
     }
   }, [user]);
 
+  // Notification Management state
+  const [notifList, setNotifList] = useState<any[]>([]);
+  const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
+  const [notifSearch, setNotifSearch] = useState("");
+  const [notifFilterType, setNotifFilterType] = useState<string>("all");
+  const [notifFilterStatus, setNotifFilterStatus] = useState<"all" | "unread" | "read">("all");
+  const [selectedNotifForDetail, setSelectedNotifForDetail] = useState<any | null>(null);
+
+  // New notification broadcast form
+  const [showCreateNotif, setShowCreateNotif] = useState(false);
+  const [newNotifTitle, setNewNotifTitle] = useState("");
+  const [newNotifMessage, setNewNotifMessage] = useState("");
+  const [newNotifType, setNewNotifType] = useState<
+    "info" | "success" | "warning" | "error" | "security"
+  >("info");
+  const [newNotifLink, setNewNotifLink] = useState("");
+  const [isSendingNotif, setIsSendingNotif] = useState(false);
+  const [notifActionMessage, setNotifActionMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const fetchSettingsNotifications = async () => {
+    setIsLoadingNotifs(true);
+    try {
+      const res = await fetch("/api/notifications");
+      if (res.ok) {
+        const data = await res.json();
+        setNotifList(data.notifications || []);
+      }
+    } catch (err) {
+      console.error("Failed to load notifications in settings:", err);
+    } finally {
+      setIsLoadingNotifs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "notifications") {
+      fetchSettingsNotifications();
+    }
+  }, [activeTab]);
+
+  const handleMarkNotifReadInSettings = async (id: string) => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      setNotifList((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: 1 } : n))
+      );
+      if (selectedNotifForDetail?.id === id) {
+        setSelectedNotifForDetail((prev: any) => ({ ...prev, isRead: 1 }));
+      }
+    } catch {}
+  };
+
+  const handleMarkAllNotifsReadInSettings = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      setNotifList((prev) => prev.map((n) => ({ ...n, isRead: 1 })));
+      setNotifActionMessage({
+        type: "success",
+        text: "ทำเครื่องหมายอ่านแล้วทุกรายการเรียบร้อย",
+      });
+      setTimeout(() => setNotifActionMessage(null), 3000);
+    } catch {}
+  };
+
+  const handleClearAllNotifsInSettings = async () => {
+    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการแจ้งเตือนทั้งหมด?")) return;
+    try {
+      await fetch("/api/notifications?all=true", { method: "DELETE" });
+      setNotifList([]);
+      setSelectedNotifForDetail(null);
+      setNotifActionMessage({
+        type: "success",
+        text: "ล้างประวัติการแจ้งเตือนทั้งหมดเรียบร้อย",
+      });
+      setTimeout(() => setNotifActionMessage(null), 3000);
+    } catch {}
+  };
+
+  const handleDeleteNotifInSettings = async (id: string) => {
+    try {
+      await fetch(`/api/notifications?id=${id}`, { method: "DELETE" });
+      setNotifList((prev) => prev.filter((n) => n.id !== id));
+      if (selectedNotifForDetail?.id === id) {
+        setSelectedNotifForDetail(null);
+      }
+      setNotifActionMessage({
+        type: "success",
+        text: "ลบรายการแจ้งเตือนเรียบร้อย",
+      });
+      setTimeout(() => setNotifActionMessage(null), 3000);
+    } catch {}
+  };
+
+  const handleCreateNotifInSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNotifTitle.trim() || !newNotifMessage.trim()) return;
+
+    setIsSendingNotif(true);
+    setNotifActionMessage(null);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newNotifTitle.trim(),
+          message: newNotifMessage.trim(),
+          type: newNotifType,
+          link: newNotifLink.trim() || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "สร้างการแจ้งเตือนไม่สำเร็จ");
+      }
+
+      setNewNotifTitle("");
+      setNewNotifMessage("");
+      setNewNotifLink("");
+      setShowCreateNotif(false);
+      fetchSettingsNotifications();
+      setNotifActionMessage({
+        type: "success",
+        text: "ส่งการแจ้งเตือนเข้าระบบเรียบร้อยแล้ว",
+      });
+      setTimeout(() => setNotifActionMessage(null), 4000);
+    } catch (err: any) {
+      setNotifActionMessage({ type: "error", text: err.message || "เกิดข้อผิดพลาด" });
+    } finally {
+      setIsSendingNotif(false);
+    }
+  };
+
   // Support switching tab from global event (e.g. from TopMenuBar)
   useEffect(() => {
     const handleSwitchTab = (e: any) => {
       if (
         e.detail &&
-        ["profile", "appearance", "datetime", "system", "desktop_dock", "about"].includes(
-          e.detail
-        )
+        [
+          "profile",
+          "notifications",
+          "appearance",
+          "datetime",
+          "system",
+          "desktop_dock",
+          "about",
+        ].includes(e.detail)
       ) {
         setActiveTab(e.detail);
       }
@@ -433,6 +594,17 @@ export function SettingsApp({ windowId }: { windowId: string }) {
         </button>
 
         <button
+          onClick={() => setActiveTab("notifications")}
+          className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+            activeTab === "notifications"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+              : "text-slate-300 hover:bg-white/5"
+          }`}
+        >
+          <Bell className="w-4 h-4" /> ศูนย์การแจ้งเตือน (Notifications)
+        </button>
+
+        <button
           onClick={() => setActiveTab("datetime")}
           className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
             activeTab === "datetime"
@@ -700,6 +872,398 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Tab: Notifications Management & History Center */}
+        {activeTab === "notifications" && (
+          <div className="space-y-6 max-w-5xl">
+            {/* Header & Quick Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-indigo-400" />
+                  ศูนย์การแจ้งเตือน & ประวัติเหตุการณ์ (Notification Center & History)
+                </h2>
+                <p className="text-xs text-slate-400">
+                  ตรวจสอบประวัติการแจ้งเตือนทั้งหมดของระบบ ค้นหา ดูข้อมูลอย่างละเอียด และจัดการเหตุการณ์
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleMarkAllNotifsReadInSettings}
+                  className="cursor-pointer px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-medium flex items-center gap-1.5 border border-white/10 transition-colors"
+                  title="ทำเครื่องหมายว่าอ่านแล้วทั้งหมด"
+                >
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>อ่านแล้วทั้งหมด</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCreateNotif(!showCreateNotif)}
+                  className="cursor-pointer px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{showCreateNotif ? "ปิดฟอร์ม" : "ส่งการแจ้งเตือนใหม่"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={fetchSettingsNotifications}
+                  disabled={isLoadingNotifs}
+                  className="cursor-pointer p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors disabled:opacity-50"
+                  title="รีเฟรชรายการ"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingNotifs ? "animate-spin" : ""}`} />
+                </button>
+
+                {notifList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllNotifsInSettings}
+                    className="cursor-pointer p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition-colors"
+                    title="ล้างประวัติการแจ้งเตือนทั้งหมด"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Notification Action Message */}
+            {notifActionMessage && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center gap-2 animate-in fade-in ${
+                  notifActionMessage.type === "success"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                }`}
+              >
+                {notifActionMessage.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{notifActionMessage.text}</span>
+              </div>
+            )}
+
+            {/* Create Notification Form (Collapsible) */}
+            {showCreateNotif && (
+              <form
+                onSubmit={handleCreateNotifInSettings}
+                className="p-5 rounded-2xl bg-white/[0.04] border border-indigo-500/30 space-y-4 animate-in fade-in zoom-in-95 duration-150"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <Send className="w-4 h-4 text-indigo-400" /> ส่งการแจ้งเตือนใหม่เข้าสู่ระบบ
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-xs font-medium text-slate-300">หัวข้อ (Title) *</label>
+                    <input
+                      type="text"
+                      value={newNotifTitle}
+                      onChange={(e) => setNewNotifTitle(e.target.value)}
+                      placeholder="เช่น อัปเดตแพตช์ความปลอดภัยประจำเดือน"
+                      required
+                      className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-300">ประเภท (Type)</label>
+                    <select
+                      value={newNotifType}
+                      onChange={(e) => setNewNotifType(e.target.value as any)}
+                      className="w-full px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    >
+                      <option value="info">ข้อมูลทั่วไป (Info)</option>
+                      <option value="success">สำเร็จ (Success)</option>
+                      <option value="warning">ข้อควรระวัง (Warning)</option>
+                      <option value="error">ข้อผิดพลาด (Error)</option>
+                      <option value="security">ความปลอดภัย (Security)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-300">
+                    แอปพลิเคชันที่ต้องการเชื่อมโยง (Target App ID - Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newNotifLink}
+                    onChange={(e) => setNewNotifLink(e.target.value)}
+                    placeholder="เช่น files, users, terminal, settings หรือปล่อยว่าง"
+                    className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-300">เนื้อหาข้อความ (Message) *</label>
+                  <textarea
+                    value={newNotifMessage}
+                    onChange={(e) => setNewNotifMessage(e.target.value)}
+                    placeholder="กรอกรายละเอียดข้อความการแจ้งเตือน..."
+                    required
+                    rows={3}
+                    className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateNotif(false)}
+                    className="cursor-pointer px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs transition-colors"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingNotif}
+                    className="cursor-pointer px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow transition-colors disabled:opacity-50"
+                  >
+                    {isSendingNotif ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isSendingNotif ? "กำลังส่ง..." : "ส่งการแจ้งเตือน"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Search & Filters */}
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={notifSearch}
+                    onChange={(e) => setNotifSearch(e.target.value)}
+                    placeholder="ค้นหาตามหัวข้อ หรือข้อความ..."
+                    className="w-full pl-9 pr-3 py-2 bg-black/30 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/10 shrink-0 overflow-x-auto">
+                  {(["all", "unread", "read"] as const).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setNotifFilterStatus(status)}
+                      className={`cursor-pointer px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                        notifFilterStatus === status
+                          ? "bg-indigo-600 text-white shadow"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {status === "all" ? "ทั้งหมด" : status === "unread" ? "ยังไม่อ่าน" : "อ่านแล้ว"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type Category Filter Pills */}
+              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
+                {[
+                  { id: "all", label: "ทุกประเภท" },
+                  { id: "info", label: "ข้อมูล (Info)" },
+                  { id: "success", label: "สำเร็จ (Success)" },
+                  { id: "security", label: "ความปลอดภัย (Security)" },
+                  { id: "warning", label: "ข้อควรระวัง (Warning)" },
+                  { id: "error", label: "ข้อผิดพลาด (Error)" },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setNotifFilterType(cat.id)}
+                    className={`cursor-pointer px-2.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors ${
+                      notifFilterType === cat.id
+                        ? "bg-white/20 text-white font-semibold"
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Master-Detail Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              {/* Left Column: Notification Items List */}
+              <div className="md:col-span-6 lg:col-span-5 space-y-2 max-h-[550px] overflow-y-auto pr-1">
+                {isLoadingNotifs ? (
+                  <div className="p-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                    <span>กำลังโหลดประวัติการแจ้งเตือน...</span>
+                  </div>
+                ) : notifList.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 rounded-2xl bg-white/[0.02] border border-white/10">
+                    <Bell className="w-8 h-8 mx-auto text-slate-600 mb-2 opacity-50" />
+                    <p>ยังไม่มีรายการแจ้งเตือนในระบบ</p>
+                  </div>
+                ) : (
+                  notifList
+                    .filter((item) => {
+                      if (notifSearch.trim()) {
+                        const q = notifSearch.toLowerCase();
+                        if (
+                          !item.title?.toLowerCase().includes(q) &&
+                          !item.message?.toLowerCase().includes(q)
+                        ) {
+                          return false;
+                        }
+                      }
+                      if (notifFilterType !== "all" && item.type !== notifFilterType) return false;
+                      const isUnread = !item.isRead || item.isRead === 0 || item.isRead === "0";
+                      if (notifFilterStatus === "unread" && !isUnread) return false;
+                      if (notifFilterStatus === "read" && isUnread) return false;
+                      return true;
+                    })
+                    .map((item) => {
+                      const isUnread = !item.isRead || item.isRead === 0 || item.isRead === "0";
+                      const isSelected = selectedNotifForDetail?.id === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            setSelectedNotifForDetail(item);
+                            if (isUnread) {
+                              handleMarkNotifReadInSettings(item.id);
+                            }
+                          }}
+                          className={`cursor-pointer group p-3 rounded-2xl border transition-all relative ${
+                            isSelected
+                              ? "bg-indigo-600/20 border-indigo-500/50 shadow-md shadow-indigo-600/10"
+                              : isUnread
+                              ? "bg-white/[0.04] border-white/15 hover:bg-white/[0.07]"
+                              : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                              {item.type === "security" ? (
+                                <Shield className="w-3.5 h-3.5 text-purple-400" />
+                              ) : item.type === "success" ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : item.type === "warning" ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                              ) : item.type === "error" ? (
+                                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                              ) : (
+                                <Info className="w-3.5 h-3.5 text-cyan-400" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className={`text-xs truncate ${isUnread ? "font-bold text-white" : "font-medium text-slate-200"}`}>
+                                  {item.title}
+                                </span>
+                                {isUnread && (
+                                  <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                {item.message}
+                              </p>
+                              <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
+                                <span>{item.createdAt}</span>
+                                {item.link && (
+                                  <span className="text-indigo-400 font-mono">
+                                    @{item.link}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+
+              {/* Right Column: Full Detail Inspection Pane (หน้าดูข้อมูลการแจ้งเตือนแบบเต็ม) */}
+              <div className="md:col-span-6 lg:col-span-7">
+                {selectedNotifForDetail ? (
+                  <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/15 space-y-4 animate-in fade-in sticky top-4">
+                    <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-slate-300">
+                            {selectedNotifForDetail.type.toUpperCase()}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {selectedNotifForDetail.createdAt}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-white">
+                          {selectedNotifForDetail.title}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNotifInSettings(selectedNotifForDetail.id)}
+                        className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/10 transition-colors"
+                        title="ลบรายการนี้"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Message Body */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        เนื้อหาข้อมูลการแจ้งเตือนฉบับเต็ม
+                      </div>
+                      <div className="p-4 rounded-xl bg-black/40 border border-white/10 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap select-text font-mono sm:font-sans min-h-[140px] max-h-72 overflow-y-auto">
+                        {selectedNotifForDetail.message}
+                      </div>
+                    </div>
+
+                    {/* Link action if available */}
+                    {selectedNotifForDetail.link && (
+                      <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between">
+                        <div className="text-xs text-indigo-300">
+                          เชื่อมโยงกับโมดูล: <strong className="text-white uppercase font-mono">{selectedNotifForDetail.link}</strong>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openApp(selectedNotifForDetail.link)}
+                          className="cursor-pointer px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>เปิดแอปพลิเคชัน</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Footer Info */}
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>รหัสอ้างอิง: <span className="font-mono text-slate-300">{selectedNotifForDetail.id}</span></span>
+                      <span>สถานะ: <strong className="text-emerald-400">อ่านแล้ว</strong></span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-12 text-center rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-slate-400 text-xs flex flex-col items-center justify-center min-h-[300px]">
+                    <Eye className="w-8 h-8 text-slate-500 mb-2 opacity-40" />
+                    <p className="font-medium text-slate-300">หน้าดูข้อมูลและรายละเอียดการแจ้งเตือน</p>
+                    <p className="text-[11px] text-slate-500 mt-1 max-w-xs">
+                      คลิกเลือกรายการแจ้งเตือนทางด้านซ้ายเพื่อเปิดดูเนื้อหาฉบับเต็ม ลิงก์ที่เกี่ยวข้อง และจัดการสถานะ
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

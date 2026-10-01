@@ -14,6 +14,9 @@ import {
   Info,
   X,
   RefreshCw,
+  Clock,
+  Calendar,
+  Eye,
 } from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
 
@@ -43,6 +46,7 @@ export function NotificationCenter({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -136,9 +140,39 @@ export function NotificationCenter({
 
   const handleNotificationClick = (item: NotificationItem) => {
     markAsRead(item.id);
-    if (item.link) {
-      openApp(item.link);
-      onClose();
+    setSelectedNotification(item);
+  };
+
+  const formatFullThaiDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("th-TH", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getTypeBadgeText = (type: NotificationItem["type"]) => {
+    switch (type) {
+      case "security":
+        return "ความปลอดภัย (Security)";
+      case "success":
+        return "สำเร็จ (Success)";
+      case "warning":
+        return "ข้อควรระวัง (Warning)";
+      case "error":
+        return "ข้อผิดพลาด (Error)";
+      case "info":
+      default:
+        return "ข้อมูลทั่วไป (Info)";
     }
   };
 
@@ -354,7 +388,133 @@ export function NotificationCenter({
             })
           )}
         </div>
+
+        {/* Drawer Footer Bar */}
+        <div className="p-2.5 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              openApp("settings");
+              window.dispatchEvent(
+                new CustomEvent("dcms-open-settings-tab", { detail: "notifications" })
+              );
+              onClose();
+            }}
+            className="cursor-pointer text-indigo-300 hover:text-indigo-200 hover:underline flex items-center gap-1.5 transition-colors font-medium text-[11px]"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>ดูประวัติการแจ้งเตือนทั้งหมด (View All)</span>
+          </button>
+          <span className="text-[10px] text-slate-500 font-mono">
+            {notifications.length} รายการ
+          </span>
+        </div>
       </div>
+
+      {/* Notification Detail Modal (หน้าดูข้อมูลการแจ้งเตือน) */}
+      {selectedNotification && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setSelectedNotification(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-[#16122cf8] border border-white/20 rounded-2xl shadow-2xl p-6 text-slate-200 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                  {getTypeIcon(selectedNotification.type)}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-slate-300">
+                      {getTypeBadgeText(selectedNotification.type)}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {formatRelativeTime(selectedNotification.createdAt)}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-white mt-1">
+                    {selectedNotification.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotification(null)}
+                className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Time Details */}
+            <div className="flex items-center gap-2 text-xs text-slate-400 bg-black/40 p-2.5 rounded-xl border border-white/5">
+              <Clock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>บันทึกเมื่อ:</span>
+              <span className="text-slate-200 font-medium">
+                {formatFullThaiDate(selectedNotification.createdAt)}
+              </span>
+            </div>
+
+            {/* Message Body */}
+            <div className="space-y-1.5">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                รายละเอียดข้อความ (Message Content)
+              </div>
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap select-text max-h-60 overflow-y-auto">
+                {selectedNotification.message}
+              </div>
+            </div>
+
+            {/* Target App action if any */}
+            {selectedNotification.link && (
+              <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between">
+                <div className="text-xs text-indigo-300">
+                  มีรายการเชื่อมโยงกับแอป: <strong className="text-white uppercase">{selectedNotification.link}</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openApp(selectedNotification.link!);
+                    setSelectedNotification(null);
+                    onClose();
+                  }}
+                  className="cursor-pointer px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>เปิดแอป {selectedNotification.link}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Modal Actions Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={async () => {
+                  await deleteNotification(selectedNotification.id, { stopPropagation: () => {} } as any);
+                  setSelectedNotification(null);
+                }}
+                className="cursor-pointer px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ลบการแจ้งเตือน</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedNotification(null)}
+                className="cursor-pointer px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-medium transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
