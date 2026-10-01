@@ -13,9 +13,12 @@ import {
   Clock,
   Cpu,
   Sparkles,
+  Monitor,
+  RotateCcw,
 } from "lucide-react";
 import { useWindowManager } from "@/core/context/WindowManagerContext";
 import { formatCustomDateTime } from "@/core/lib/dateFormat";
+import { DynamicIcon } from "@/core/components/IconResolver";
 
 const wallpapers = [
   {
@@ -49,10 +52,17 @@ export function SettingsApp({ windowId }: { windowId: string }) {
     setLanguage,
     dateFormatConfig,
     setDateFormatConfig,
+    isModuleOnDesktop,
+    isModuleOnDock,
+    toggleDesktopShortcut,
+    toggleDockShortcut,
+    showDesktopIcons,
+    toggleShowDesktopIcons,
+    resetShortcutsToDefault,
   } = useWindowManager();
 
   const [activeTab, setActiveTab] = useState<
-    "appearance" | "datetime" | "system" | "about"
+    "appearance" | "datetime" | "system" | "desktop_dock" | "about"
   >("datetime");
 
   const [now, setNow] = useState(new Date());
@@ -81,6 +91,17 @@ export function SettingsApp({ windowId }: { windowId: string }) {
           }`}
         >
           <Calendar className="w-4 h-4" /> วันที่ & ภาษา (Date & Lang)
+        </button>
+
+        <button
+          onClick={() => setActiveTab("desktop_dock")}
+          className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+            activeTab === "desktop_dock"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+              : "text-slate-300 hover:bg-white/5"
+          }`}
+        >
+          <Monitor className="w-4 h-4" /> เดสก์ท็อป & ด็อค (Desk & Dock)
         </button>
 
         <button
@@ -345,6 +366,174 @@ export function SettingsApp({ windowId }: { windowId: string }) {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Desktop & Dock Settings (แยกเมนูด้านข้าง และด้านล่าง + ตัวเลือก แสดงใน desk) */}
+        {activeTab === "desktop_dock" && (
+          <div className="space-y-6 max-w-2xl">
+            <div>
+              <h2 className="text-base font-bold text-white mb-1">
+                การตั้งค่าเดสก์ท็อปและด็อค (Desktop & Dock Settings)
+              </h2>
+              <p className="text-xs text-slate-400">
+                แยกการแสดงผลระหว่างเมนูด้านข้าง (หน้าจอเดสก์ท็อป) และแถบด็อคด้านล่างออกจากกัน โดยสามารถเปิด/ปิดตัวเลือก "แสดงใน Desk" ได้ตามต้องการ
+              </p>
+            </div>
+
+            {/* Master Toggle: Show Desktop Shortcuts */}
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center">
+                  <Monitor className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">
+                    แสดงไอคอนบนเดสก์ท็อป (Show Desktop Icons)
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    แสดงทางลัดแอปพลิเคชันคอลัมน์ด้านข้างซ้ายบนหน้าจอเดสก์ท็อป
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleShowDesktopIcons}
+                className={`cursor-pointer relative w-12 h-6 rounded-full transition-colors ${
+                  showDesktopIcons ? "bg-indigo-600" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    showDesktopIcons ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Application List with Independent Toggles */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                  รายการแอปพลิเคชันและการแสดงผล ({modules.length} แอป)
+                </h3>
+                <button
+                  type="button"
+                  onClick={resetShortcutsToDefault}
+                  className="cursor-pointer text-xs text-slate-400 hover:text-white flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>คืนค่าเริ่มต้น (Reset Defaults)</span>
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden divide-y divide-white/5">
+                {modules.map((mod) => {
+                  const onDesk = isModuleOnDesktop(mod);
+                  const onDock = isModuleOnDock(mod);
+
+                  return (
+                    <div
+                      key={mod.id}
+                      className="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 pr-4">
+                        <div
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${mod.colorGradient} flex items-center justify-center text-white shrink-0 shadow-sm`}
+                        >
+                          <DynamicIcon name={mod.iconName} className="w-4.5 h-4.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-white truncate">
+                              {mod.name}
+                            </span>
+                            {mod.nameTh && (
+                              <span className="text-[11px] text-slate-400 truncate">
+                                ({mod.nameTh})
+                              </span>
+                            )}
+                            {mod.isSystemApp && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+                                Core
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {mod.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Toggles */}
+                      <div className="flex items-center gap-4 shrink-0">
+                        {/* Show on Desk Toggle */}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              onDesk ? "text-cyan-300 font-semibold" : "text-slate-500"
+                            }`}
+                          >
+                            แสดงใน Desk
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleDesktopShortcut(mod.id)}
+                            className={`cursor-pointer relative w-10 h-5 rounded-full transition-colors ${
+                              onDesk
+                                ? "bg-cyan-600 shadow-sm shadow-cyan-500/30"
+                                : "bg-slate-700"
+                            }`}
+                            title={
+                              onDesk
+                                ? "คลิกเพื่อซ่อนจากหน้าจอ Desk"
+                                : "คลิกเพื่อแสดงในหน้าจอ Desk"
+                            }
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${
+                                onDesk ? "translate-x-5" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Show on Dock Toggle */}
+                        <div className="flex items-center gap-2 pl-3 border-l border-white/10">
+                          <span
+                            className={`text-xs font-medium transition-colors ${
+                              onDock ? "text-indigo-300 font-semibold" : "text-slate-500"
+                            }`}
+                          >
+                            แถบ Dock
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleDockShortcut(mod.id)}
+                            className={`cursor-pointer relative w-10 h-5 rounded-full transition-colors ${
+                              onDock
+                                ? "bg-indigo-600 shadow-sm shadow-indigo-500/30"
+                                : "bg-slate-700"
+                            }`}
+                            title={
+                              onDock
+                                ? "คลิกเพื่อนำออกจากแถบ Dock"
+                                : "คลิกเพื่อปักหมุดที่แถบ Dock"
+                            }
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${
+                                onDock ? "translate-x-5" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

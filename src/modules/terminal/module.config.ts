@@ -20,7 +20,7 @@ export const terminalModule: AppModule = {
   },
   enabled: true,
   isSystemApp: true,
-  desktopShortcut: true,
+  desktopShortcut: false,
   dockShortcut: true,
   component: TerminalApp,
 };

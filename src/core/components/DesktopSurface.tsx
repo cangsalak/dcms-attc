@@ -6,7 +6,22 @@ import { DynamicIcon } from "./IconResolver";
 import { WindowFrame } from "./WindowFrame";
 import { SynologyWidgets } from "./SynologyWidgets";
 import { SynologyAppLauncher } from "./SynologyAppLauncher";
-import { RefreshCw, Image, LayoutGrid, Activity, Maximize2, Minimize2 } from "lucide-react";
+import {
+  RefreshCw,
+  Image,
+  LayoutGrid,
+  Activity,
+  Maximize2,
+  Minimize2,
+  Pin,
+  PinOff,
+  Eye,
+  EyeOff,
+  Settings,
+  ExternalLink,
+  Monitor,
+} from "lucide-react";
+import { AppModule } from "../types/module";
 
 export function DesktopSurface() {
   const {
@@ -19,6 +34,12 @@ export function DesktopSurface() {
     setLauncherOpen,
     isFullscreen,
     toggleFullscreen,
+    isModuleOnDesktop,
+    isModuleOnDock,
+    toggleDesktopShortcut,
+    toggleDockShortcut,
+    showDesktopIcons,
+    toggleShowDesktopIcons,
   } = useWindowManager();
 
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
@@ -32,14 +53,27 @@ export function DesktopSurface() {
     y: 0,
   });
 
-  const desktopModules = modules.filter((m) => m.desktopShortcut && m.enabled);
+  const [appContextMenu, setAppContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    mod: AppModule | null;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    mod: null,
+  });
+
+  const desktopModules = modules.filter((m) => isModuleOnDesktop(m) && m.enabled);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    setAppContextMenu((prev) => ({ ...prev, visible: false }));
     setContextMenu({
       visible: true,
-      x: Math.min(e.clientX, window.innerWidth - 180),
-      y: Math.min(e.clientY, window.innerHeight - 200),
+      x: Math.min(e.clientX, window.innerWidth - 220),
+      y: Math.min(e.clientY, window.innerHeight - 240),
     });
   };
 
@@ -47,6 +81,9 @@ export function DesktopSurface() {
     setSelectedAppId(null);
     if (contextMenu.visible) {
       setContextMenu({ ...contextMenu, visible: false });
+    }
+    if (appContextMenu.visible) {
+      setAppContextMenu({ ...appContextMenu, visible: false });
     }
   };
 
@@ -125,6 +162,17 @@ export function DesktopSurface() {
                 e.stopPropagation();
                 openApp(mod.id);
               }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu((prev) => ({ ...prev, visible: false }));
+                setAppContextMenu({
+                  visible: true,
+                  x: Math.min(e.clientX, window.innerWidth - 220),
+                  y: Math.min(e.clientY, window.innerHeight - 240),
+                  mod,
+                });
+              }}
               className={`flex flex-col items-center group cursor-pointer p-2 rounded-2xl transition-all w-24 ${
                 isSelected
                   ? "bg-white/15 ring-1 ring-white/30 backdrop-blur-md shadow-lg"
@@ -155,11 +203,82 @@ export function DesktopSurface() {
         <WindowFrame key={win.id} windowState={win} />
       ))}
 
-      {/* Desktop Right Click Context Menu */}
+      {/* App Shortcut Right-Click Context Menu */}
+      {appContextMenu.visible && appContextMenu.mod && (
+        <div
+          style={{ top: `${appContextMenu.y}px`, left: `${appContextMenu.x}px` }}
+          className="fixed glass-panel rounded-xl py-1 text-xs text-slate-200 shadow-2xl z-50 w-60 animate-in fade-in zoom-in-95 duration-75 select-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b border-white/10 flex items-center gap-2">
+            <DynamicIcon name={appContextMenu.mod.iconName} className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="truncate">
+              {language === "th" && appContextMenu.mod.nameTh ? appContextMenu.mod.nameTh : appContextMenu.mod.name}
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              openApp(appContextMenu.mod!.id);
+              setAppContextMenu((prev) => ({ ...prev, visible: false }));
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>เปิดแอป (Open)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              toggleDesktopShortcut(appContextMenu.mod!.id);
+              setAppContextMenu((prev) => ({ ...prev, visible: false }));
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-rose-600/30 text-rose-300 hover:text-white flex items-center gap-2"
+          >
+            <EyeOff className="w-3.5 h-3.5" />
+            <span>นำออกจากเดสก์ท็อป (Remove from Desk)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              toggleDockShortcut(appContextMenu.mod!.id);
+              setAppContextMenu((prev) => ({ ...prev, visible: false }));
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+          >
+            {isModuleOnDock(appContextMenu.mod) ? (
+              <>
+                <PinOff className="w-3.5 h-3.5 text-amber-400" />
+                <span>นำออกจากด็อค (Unpin from Dock)</span>
+              </>
+            ) : (
+              <>
+                <Pin className="w-3.5 h-3.5 text-indigo-400" />
+                <span>ปักหมุดที่ด็อค (Pin to Dock)</span>
+              </>
+            )}
+          </button>
+
+          <div className="border-t border-white/10 my-1" />
+
+          <button
+            onClick={() => {
+              openApp("settings");
+              setAppContextMenu((prev) => ({ ...prev, visible: false }));
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-white/10 text-slate-300 flex items-center gap-2"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>จัดการเดสก์ท็อป & ด็อค (Settings)...</span>
+          </button>
+        </div>
+      )}
+
+      {/* Desktop Background Right Click Context Menu */}
       {contextMenu.visible && (
         <div
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed glass-panel rounded-xl py-1 text-xs text-slate-200 shadow-2xl z-50 w-56 animate-in fade-in zoom-in-95 duration-75 select-none"
+          className="fixed glass-panel rounded-xl py-1 text-xs text-slate-200 shadow-2xl z-50 w-60 animate-in fade-in zoom-in-95 duration-75 select-none"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -182,6 +301,34 @@ export function DesktopSurface() {
             <Activity className="w-3.5 h-3.5" />
             <span>เปิด/ปิด วิดเจ็ตระบบ (Widgets)</span>
           </button>
+
+          <div className="border-t border-white/10 my-1" />
+
+          <button
+            onClick={() => {
+              toggleShowDesktopIcons();
+              setContextMenu({ ...contextMenu, visible: false });
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Monitor className="w-3.5 h-3.5" />
+              <span>แสดงไอคอนบนเดสก์ท็อป</span>
+            </div>
+            {showDesktopIcons && <span className="text-cyan-400 font-bold">✓</span>}
+          </button>
+
+          <button
+            onClick={() => {
+              openApp("settings");
+              setContextMenu({ ...contextMenu, visible: false });
+            }}
+            className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>ตั้งค่าเดสก์ท็อป & ด็อค (Desk & Dock)...</span>
+          </button>
+
           <button
             onClick={() => {
               openApp("settings");

@@ -21,6 +21,6 @@ export const usersModule: AppModule = {
   enabled: true,
   isSystemApp: true,
   desktopShortcut: true,
-  dockShortcut: true,
+  dockShortcut: false,
   component: UsersApp,
 };

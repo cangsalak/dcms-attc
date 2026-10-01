@@ -1,13 +1,49 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, X, Grid, Sparkles, FolderOpen, Users, Settings, Boxes } from "lucide-react";
+import {
+  Search,
+  X,
+  Grid,
+  Sparkles,
+  FolderOpen,
+  Users,
+  Settings,
+  Boxes,
+  Eye,
+  EyeOff,
+  Pin,
+  PinOff,
+  ExternalLink,
+} from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
 import { DynamicIcon } from "./IconResolver";
+import { AppModule } from "../types/module";
 
 export function SynologyAppLauncher() {
-  const { isLauncherOpen, setLauncherOpen, modules, openApp, language } = useWindowManager();
+  const {
+    isLauncherOpen,
+    setLauncherOpen,
+    modules,
+    openApp,
+    language,
+    isModuleOnDesktop,
+    isModuleOnDock,
+    toggleDesktopShortcut,
+    toggleDockShortcut,
+  } = useWindowManager();
   const [search, setSearch] = useState("");
+  const [launcherContextMenu, setLauncherContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    mod: AppModule | null;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    mod: null,
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -77,8 +113,28 @@ export function SynologyAppLauncher() {
                 openApp(mod.id);
                 setLauncherOpen(false);
               }}
-              className="group cursor-pointer flex flex-col items-center p-3 rounded-2xl hover:bg-white/10 transition-all active:scale-95 text-center w-32"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setLauncherContextMenu({
+                  visible: true,
+                  x: Math.min(e.clientX, window.innerWidth - 220),
+                  y: Math.min(e.clientY, window.innerHeight - 200),
+                  mod,
+                });
+              }}
+              className="group cursor-pointer flex flex-col items-center p-3 rounded-2xl hover:bg-white/10 transition-all active:scale-95 text-center w-32 relative"
             >
+              {/* Badges indicating Desk / Dock status */}
+              <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                {isModuleOnDesktop(mod) && (
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" title="แสดงบนเดสก์ท็อป (In Desk)" />
+                )}
+                {isModuleOnDock(mod) && (
+                  <span className="w-2 h-2 rounded-full bg-purple-400" title="อยู่ในแถบด็อค (In Dock)" />
+                )}
+              </div>
+
               <div
                 className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${mod.colorGradient} flex items-center justify-center text-white shadow-xl shadow-black/50 group-hover:scale-110 group-hover:shadow-indigo-500/30 transition-all duration-200 mb-2.5`}
               >
@@ -94,6 +150,85 @@ export function SynologyAppLauncher() {
           );
         })}
       </div>
+
+      {/* Launcher Item Right-Click Context Menu */}
+      {launcherContextMenu.visible && launcherContextMenu.mod && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setLauncherContextMenu({ visible: false, x: 0, y: 0, mod: null })}
+          />
+          <div
+            style={{ top: `${launcherContextMenu.y}px`, left: `${launcherContextMenu.x}px` }}
+            className="fixed glass-panel rounded-xl py-1 text-xs text-slate-200 shadow-2xl z-50 w-60 animate-in fade-in zoom-in-95 duration-75 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b border-white/10 flex items-center gap-2">
+              <DynamicIcon
+                name={launcherContextMenu.mod.iconName}
+                className="w-3.5 h-3.5 text-indigo-400"
+              />
+              <span className="truncate">
+                {language === "th" && launcherContextMenu.mod.nameTh
+                  ? launcherContextMenu.mod.nameTh
+                  : launcherContextMenu.mod.name}
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                openApp(launcherContextMenu.mod!.id);
+                setLauncherOpen(false);
+                setLauncherContextMenu({ visible: false, x: 0, y: 0, mod: null });
+              }}
+              className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>เปิดแอป (Open)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                toggleDesktopShortcut(launcherContextMenu.mod!.id);
+                setLauncherContextMenu({ visible: false, x: 0, y: 0, mod: null });
+              }}
+              className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+            >
+              {isModuleOnDesktop(launcherContextMenu.mod) ? (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                  <span>นำออกจากเดสก์ท็อป (Remove from Desk)</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>แสดงใน Desk (Show on Desktop)</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                toggleDockShortcut(launcherContextMenu.mod!.id);
+                setLauncherContextMenu({ visible: false, x: 0, y: 0, mod: null });
+              }}
+              className="cursor-pointer w-full text-left px-3 py-1.5 hover:bg-indigo-600 hover:text-white flex items-center gap-2"
+            >
+              {isModuleOnDock(launcherContextMenu.mod) ? (
+                <>
+                  <PinOff className="w-3.5 h-3.5 text-amber-400" />
+                  <span>นำออกจากด็อค (Remove from Dock)</span>
+                </>
+              ) : (
+                <>
+                  <Pin className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>ปักหมุดที่ด็อค (Pin to Dock)</span>
+                </>
+              )}
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Bottom Hint */}
       <div className="mt-auto text-xs text-slate-500 flex items-center gap-2">

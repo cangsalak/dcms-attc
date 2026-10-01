@@ -37,6 +37,18 @@ interface WindowManagerContextType {
   uninstallModule: (moduleId: string) => void;
   isFullscreen: boolean;
   toggleFullscreen: () => void;
+  desktopShortcuts: Record<string, boolean>;
+  dockShortcuts: Record<string, boolean>;
+  showDesktopIcons: boolean;
+  isModuleOnDesktop: (mod: AppModule) => boolean;
+  isModuleOnDock: (mod: AppModule) => boolean;
+  toggleDesktopShortcut: (moduleId: string) => void;
+  toggleDockShortcut: (moduleId: string) => void;
+  setDesktopShortcut: (moduleId: string, show: boolean) => void;
+  setDockShortcut: (moduleId: string, show: boolean) => void;
+  setShowDesktopIcons: (show: boolean) => void;
+  toggleShowDesktopIcons: () => void;
+  resetShortcutsToDefault: () => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | null>(null);
@@ -125,6 +137,10 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
     setActiveWindowId(null);
   }, []);
 
+  const [desktopShortcuts, setDesktopShortcuts] = useState<Record<string, boolean>>({});
+  const [dockShortcuts, setDockShortcuts] = useState<Record<string, boolean>>({});
+  const [showDesktopIcons, setShowDesktopIconsState] = useState<boolean>(true);
+
   // Load from localStorage on mount
   useEffect(() => {
     try {
@@ -136,9 +152,115 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
 
       const savedDate = localStorage.getItem("dcms_date_config");
       if (savedDate) setDateFormatState(JSON.parse(savedDate));
+
+      const savedDesktop = localStorage.getItem("dcms_desktop_shortcuts");
+      if (savedDesktop) setDesktopShortcuts(JSON.parse(savedDesktop));
+
+      const savedDock = localStorage.getItem("dcms_dock_shortcuts");
+      if (savedDock) setDockShortcuts(JSON.parse(savedDock));
+
+      const savedShowDesk = localStorage.getItem("dcms_show_desktop_icons");
+      if (savedShowDesk !== null) setShowDesktopIconsState(savedShowDesk === "true");
     } catch {
       // Ignore
     }
+  }, []);
+
+  const isModuleOnDesktop = useCallback(
+    (mod: AppModule): boolean => {
+      if (!showDesktopIcons) return false;
+      if (desktopShortcuts[mod.id] !== undefined) {
+        return desktopShortcuts[mod.id];
+      }
+      return Boolean(mod.desktopShortcut);
+    },
+    [desktopShortcuts, showDesktopIcons]
+  );
+
+  const isModuleOnDock = useCallback(
+    (mod: AppModule): boolean => {
+      if (dockShortcuts[mod.id] !== undefined) {
+        return dockShortcuts[mod.id];
+      }
+      return Boolean(mod.dockShortcut);
+    },
+    [dockShortcuts]
+  );
+
+  const toggleDesktopShortcut = useCallback((moduleId: string) => {
+    setDesktopShortcuts((prev) => {
+      const current =
+        prev[moduleId] !== undefined
+          ? prev[moduleId]
+          : Boolean(modules.find((m) => m.id === moduleId)?.desktopShortcut);
+      const updated = { ...prev, [moduleId]: !current };
+      try {
+        localStorage.setItem("dcms_desktop_shortcuts", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, [modules]);
+
+  const toggleDockShortcut = useCallback((moduleId: string) => {
+    setDockShortcuts((prev) => {
+      const current =
+        prev[moduleId] !== undefined
+          ? prev[moduleId]
+          : Boolean(modules.find((m) => m.id === moduleId)?.dockShortcut);
+      const updated = { ...prev, [moduleId]: !current };
+      try {
+        localStorage.setItem("dcms_dock_shortcuts", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, [modules]);
+
+  const setDesktopShortcut = useCallback((moduleId: string, show: boolean) => {
+    setDesktopShortcuts((prev) => {
+      const updated = { ...prev, [moduleId]: show };
+      try {
+        localStorage.setItem("dcms_desktop_shortcuts", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const setDockShortcut = useCallback((moduleId: string, show: boolean) => {
+    setDockShortcuts((prev) => {
+      const updated = { ...prev, [moduleId]: show };
+      try {
+        localStorage.setItem("dcms_dock_shortcuts", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const setShowDesktopIcons = useCallback((show: boolean) => {
+    setShowDesktopIconsState(show);
+    try {
+      localStorage.setItem("dcms_show_desktop_icons", String(show));
+    } catch {}
+  }, []);
+
+  const toggleShowDesktopIcons = useCallback(() => {
+    setShowDesktopIconsState((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("dcms_show_desktop_icons", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const resetShortcutsToDefault = useCallback(() => {
+    setDesktopShortcuts({});
+    setDockShortcuts({});
+    setShowDesktopIconsState(true);
+    try {
+      localStorage.removeItem("dcms_desktop_shortcuts");
+      localStorage.removeItem("dcms_dock_shortcuts");
+      localStorage.removeItem("dcms_show_desktop_icons");
+    } catch {}
   }, []);
 
   // Fetch installed modules from database on mount
@@ -411,6 +533,18 @@ export function WindowManagerProvider({ children }: { children: React.ReactNode 
         uninstallModule,
         isFullscreen,
         toggleFullscreen,
+        desktopShortcuts,
+        dockShortcuts,
+        showDesktopIcons,
+        isModuleOnDesktop,
+        isModuleOnDock,
+        toggleDesktopShortcut,
+        toggleDockShortcut,
+        setDesktopShortcut,
+        setDockShortcut,
+        setShowDesktopIcons,
+        toggleShowDesktopIcons,
+        resetShortcutsToDefault,
       }}
     >
       {children}
