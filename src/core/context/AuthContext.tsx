@@ -15,8 +15,12 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isLocked: boolean;
+  lock: () => void;
+  unlock: (password: string) => Promise<{ success: boolean; error?: string }>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  updateUser: (updatedFields: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -24,6 +28,12 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dcms_is_locked") === "true";
+    }
+    return false;
+  });
 
   // Check existing session on mount
   useEffect(() => {
@@ -35,6 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(data.user);
         } else {
           setUser(null);
+          setIsLocked(false);
+          try {
+            localStorage.removeItem("dcms_is_locked");
+          } catch {}
         }
       } catch (e) {
         console.error("Session check error:", e);
@@ -65,12 +79,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const lock = () => {
+    setIsLocked(true);
+    try {
+      localStorage.setItem("dcms_is_locked", "true");
+    } catch {}
+  };
+
+  const unlock = async (password: string) => {
+    if (!user) return { success: false, error: "ไม่พบบัญชีผู้ใช้งาน" };
+    const res = await login(user.email, password);
+    if (res.success) {
+      setIsLocked(false);
+      try {
+        localStorage.removeItem("dcms_is_locked");
+      } catch {}
+      return { success: true };
+    }
+    return { success: false, error: res.error || "รหัสผ่านไม่ถูกต้อง" };
+  };
+
   const logout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
       setUser(null);
+      setIsLocked(false);
+      try {
+        localStorage.removeItem("dcms_is_locked");
+      } catch {}
     }
+  };
+
+  const updateUser = (updatedFields: Partial<AuthUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedFields } : null));
   };
 
   return (
@@ -79,8 +121,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAuthenticated: Boolean(user),
         isLoading,
+        isLocked,
+        lock,
+        unlock,
         login,
         logout,
+        updateUser,
       }}
     >
       {children}

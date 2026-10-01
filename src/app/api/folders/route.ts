@@ -51,17 +51,29 @@ export async function GET(req: Request) {
     }
 
     // Query list of subfolders
-    const folders = await db.query(
-      `SELECT id, name, parent_id as "parentId", owner_id as "ownerId",
-              access_type as "accessType", allowed_roles as "allowedRoles",
-              allowed_users as "allowedUsers", department,
-              permission_level as "permissionLevel",
-              created_by as "createdBy", created_at as "createdAt"
-       FROM folders 
-       WHERE parent_id = ? 
-       ORDER BY name ASC`,
-      [parentId]
-    );
+    const sql =
+      parentId === "trash"
+        ? `SELECT id, name, parent_id as "parentId", owner_id as "ownerId",
+                  access_type as "accessType", allowed_roles as "allowedRoles",
+                  allowed_users as "allowedUsers", department,
+                  permission_level as "permissionLevel",
+                  created_by as "createdBy", created_at as "createdAt"
+           FROM folders 
+           WHERE (is_trash = true OR is_trash = 1)
+           ORDER BY name ASC`
+        : `SELECT id, name, parent_id as "parentId", owner_id as "ownerId",
+                  access_type as "accessType", allowed_roles as "allowedRoles",
+                  allowed_users as "allowedUsers", department,
+                  permission_level as "permissionLevel",
+                  created_by as "createdBy", created_at as "createdAt"
+           FROM folders 
+           WHERE parent_id = ? AND (is_trash = false OR is_trash = 0 OR is_trash IS NULL)
+           ORDER BY name ASC`;
+
+    const folders =
+      parentId === "trash"
+        ? await db.query(sql)
+        : await db.query(sql, [parentId]);
 
     // Filter folders based on user permissions
     const accessibleFolders = folders.filter((f: any) => {
@@ -305,14 +317,43 @@ export async function PATCH(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { id, action } = body;
+
+    const db = await ensureDatabaseReady();
+
+    if (action === "restore" && id) {
+      await db.execute(
+        "UPDATE folders SET is_trash = 0, deleted_at = NULL WHERE id = ?",
+        [id]
+      );
+      // Also restore files inside this folder
+      await db.execute(
+        "UPDATE files SET is_trash = 0, deleted_at = NULL WHERE folder_id = ?",
+        [id]
+      );
+      return NextResponse.json({ success: true, message: "กู้คืนโฟลเดอร์เรียบร้อยแล้ว" });
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-
-    if (!id || id === "root") {
-      return NextResponse.json({ error: "ไม่สามารถลบโฟลเดอร์หลักได้" }, { status: 400 });
-    }
+    const permanent = searchParams.get("permanent") === "true";
+    const emptyTrash = searchParams.get("emptyTrash") === "true";
 
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
@@ -323,7 +364,33 @@ export async function DELETE(req: Request) {
     }
     const db = await ensureDatabaseReady();
 
-    const rows = await db.query(`SELECT * FROM folders WHERE id = ?`, [id]);
+    // 1. Empty all folders in trash
+    if (emptyTrash) {
+      const trashFolders = await db.query<{ id: string }>(
+        "SELECT id FROM folders WHERE (is_trash = true OR is_trash = 1)"
+      );
+      for (const tf of trashFolders) {
+        const files = await db.query<{ filename: string }>(
+          `SELECT filename FROM files WHERE folder_id = ?`,
+          [tf.id]
+        );
+        for (const f of files) {
+          const filePath = path.join(process.cwd(), "public", "uploads", f.filename);
+          if (fs.existsSync(filePath)) {
+            try { fs.unlinkSync(filePath); } catch {}
+          }
+        }
+        await db.execute(`DELETE FROM files WHERE folder_id = ?`, [tf.id]);
+        await db.execute(`DELETE FROM folders WHERE id = ?`, [tf.id]);
+      }
+      return NextResponse.json({ success: true, message: "ล้างถังขยะโฟลเดอร์เรียบร้อยแล้ว" });
+    }
+
+    if (!id || id === "root") {
+      return NextResponse.json({ error: "ไม่สามารถลบโฟลเดอร์หลักได้" }, { status: 400 });
+    }
+
+    const rows = await db.query<any>(`SELECT * FROM folders WHERE id = ?`, [id]);
     if (rows.length === 0) {
       return NextResponse.json({ error: "ไม่พบโฟลเดอร์" }, { status: 404 });
     }
@@ -337,31 +404,44 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Find all files inside this folder to delete physical files
-    const files = await db.query<{ filename: string }>(
-      `SELECT filename FROM files WHERE folder_id = ?`,
+    const isAlreadyInTrash = Boolean(folder.is_trash && folder.is_trash !== 0 && folder.is_trash !== "0");
+
+    // 2. Permanent Delete (if requested or already in trash)
+    if (permanent || isAlreadyInTrash) {
+      // Find all files inside this folder to delete physical files
+      const files = await db.query<{ filename: string }>(
+        `SELECT filename FROM files WHERE folder_id = ?`,
+        [id]
+      );
+
+      for (const f of files) {
+        const filePath = path.join(process.cwd(), "public", "uploads", f.filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch {}
+        }
+      }
+
+      await db.execute(`DELETE FROM files WHERE folder_id = ?`, [id]);
+      await db.execute(`DELETE FROM folders WHERE parent_id = ?`, [id]);
+      await db.execute(`DELETE FROM folders WHERE id = ?`, [id]);
+
+      return NextResponse.json({ success: true, deletedFolderId: id, permanent: true });
+    }
+
+    // 3. Soft Delete -> Move to Recycle Bin
+    await db.execute(
+      `UPDATE folders SET is_trash = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [id]
+    );
+    // Also mark contained files as trash
+    await db.execute(
+      `UPDATE files SET is_trash = 1, deleted_at = CURRENT_TIMESTAMP WHERE folder_id = ?`,
       [id]
     );
 
-    for (const f of files) {
-      const filePath = path.join(process.cwd(), "public", "uploads", f.filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch {}
-      }
-    }
-
-    // Delete files records
-    await db.execute(`DELETE FROM files WHERE folder_id = ?`, [id]);
-
-    // Delete subfolders recursively
-    await db.execute(`DELETE FROM folders WHERE parent_id = ?`, [id]);
-
-    // Delete the folder itself
-    await db.execute(`DELETE FROM folders WHERE id = ?`, [id]);
-
-    return NextResponse.json({ success: true, deletedFolderId: id });
+    return NextResponse.json({ success: true, deletedFolderId: id, inTrash: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

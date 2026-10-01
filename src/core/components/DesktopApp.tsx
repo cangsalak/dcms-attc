@@ -5,10 +5,11 @@ import { TopMenuBar } from "./TopMenuBar";
 import { DesktopSurface } from "./DesktopSurface";
 import { DockBar } from "./DockBar";
 import { LoginScreen } from "./LoginScreen";
+import { LockScreen } from "./LockScreen";
 import { useAuth } from "../context/AuthContext";
 
 export function DesktopApp() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isLocked } = useAuth();
 
   // Loading state
   if (isLoading) {
@@ -29,12 +30,13 @@ export function DesktopApp() {
     return <LoginScreen />;
   }
 
-  // Authenticated: Show Clean Full Desktop OS (no windows auto-open)
+  // Authenticated: Show Clean Full Desktop OS
   return (
     <main className="relative w-screen h-screen flex flex-col overflow-hidden bg-[#0d091e]">
       <TopMenuBar />
       <DesktopSurface />
       <DockBar />
+      {isLocked && <LockScreen />}
     </main>
   );
 }

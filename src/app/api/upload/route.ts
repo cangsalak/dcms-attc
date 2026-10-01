@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { ensureDatabaseReady } from "@/core/database";
 import { getSessionUser, checkFolderPermission } from "@/core/lib/auth";
+import { createSystemNotification } from "@/core/lib/notifications";
 
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 
@@ -58,13 +59,19 @@ export async function GET(req: Request) {
 
     let sql = `SELECT id, filename, original_name as "originalName", mime_type as "mimeType", 
                       size_bytes as "sizeBytes", url, folder_id as "folderId", 
-                      uploaded_by as "uploadedBy", uploaded_at as "uploadedAt" 
+                      uploaded_by as "uploadedBy", uploaded_at as "uploadedAt",
+                      is_trash as "isTrash", deleted_at as "deletedAt" 
                FROM files `;
     const params: any[] = [];
 
-    if (folderId && folderId !== "all") {
-      sql += ` WHERE folder_id = ? `;
-      params.push(folderId);
+    if (folderId === "trash") {
+      sql += ` WHERE (is_trash = true OR is_trash = 1) `;
+    } else {
+      sql += ` WHERE (is_trash = false OR is_trash = 0 OR is_trash IS NULL) `;
+      if (folderId && folderId !== "all") {
+        sql += ` AND folder_id = ? `;
+        params.push(folderId);
+      }
     }
 
     sql += ` ORDER BY uploaded_at DESC`;
@@ -204,6 +211,13 @@ export async function POST(req: Request) {
         uploadedAt: new Date().toISOString(),
       });
     }
+ 
+    createSystemNotification({
+      title: "อัปโหลดไฟล์สำเร็จ",
+      message: `${sessionUser.name} อัปโหลด ${savedRecords.length} ไฟล์ เข้าสู่ File Station`,
+      type: "success",
+      link: "files",
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,
@@ -211,6 +225,32 @@ export async function POST(req: Request) {
       files: savedRecords,
       file: savedRecords[0] || null,
     });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { id, action } = body;
+
+    const db = await ensureDatabaseReady();
+
+    if (action === "restore" && id) {
+      await db.execute(
+        "UPDATE files SET is_trash = 0, deleted_at = NULL WHERE id = ?",
+        [id]
+      );
+      return NextResponse.json({ success: true, message: "กู้คืนไฟล์เรียบร้อยแล้ว" });
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -228,46 +268,78 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const permanent = searchParams.get("permanent") === "true";
+    const emptyTrash = searchParams.get("emptyTrash") === "true";
+
+    const db = await ensureDatabaseReady();
+
+    // 1. Empty entire trash
+    if (emptyTrash) {
+      const trashFiles = await db.query<{ id: string; filename: string }>(
+        "SELECT id, filename FROM files WHERE (is_trash = true OR is_trash = 1)"
+      );
+      for (const file of trashFiles) {
+        const filePath = path.join(process.cwd(), "public", "uploads", file.filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch {}
+        }
+      }
+      await db.execute("DELETE FROM files WHERE (is_trash = true OR is_trash = 1)");
+      return NextResponse.json({ success: true, message: "ล้างถังขยะเรียบร้อยแล้ว" });
+    }
 
     if (!id) {
       return NextResponse.json({ error: "Missing file id" }, { status: 400 });
     }
 
-    const db = await ensureDatabaseReady();
-    const rows = await db.query<{ filename: string; folder_id: string; uploaded_by: string }>(
-      "SELECT filename, folder_id, uploaded_by FROM files WHERE id = ?",
+    const rows = await db.query<{ filename: string; folder_id: string; uploaded_by: string; is_trash: any }>(
+      "SELECT filename, folder_id, uploaded_by, is_trash FROM files WHERE id = ?",
       [id]
     );
 
-    if (rows.length > 0) {
-      const file = rows[0];
+    if (rows.length === 0) {
+      return NextResponse.json({ error: "ไม่พบไฟล์" }, { status: 404 });
+    }
 
-      // Check permission on parent folder
-      if (file.folder_id && file.folder_id !== "root") {
-        const folderRows = await db.query(`SELECT * FROM folders WHERE id = ?`, [file.folder_id]);
-        if (folderRows.length > 0) {
-          const perm = checkFolderPermission(folderRows[0], sessionUser);
-          const isUploader = sessionUser.name && file.uploaded_by === sessionUser.name;
-          if (!perm.canWrite && !isUploader && sessionUser.role !== "Super Admin" && sessionUser.role !== "Admin") {
-            return NextResponse.json(
-              { error: "คุณไม่มีสิทธิ์ลบไฟล์ในโฟลเดอร์นี้" },
-              { status: 403 }
-            );
-          }
+    const file = rows[0];
+    const isAlreadyInTrash = Boolean(file.is_trash && file.is_trash !== 0 && file.is_trash !== "0");
+
+    // Check permission on parent folder
+    if (file.folder_id && file.folder_id !== "root") {
+      const folderRows = await db.query(`SELECT * FROM folders WHERE id = ?`, [file.folder_id]);
+      if (folderRows.length > 0) {
+        const perm = checkFolderPermission(folderRows[0], sessionUser);
+        const isUploader = sessionUser.name && file.uploaded_by === sessionUser.name;
+        if (!perm.canWrite && !isUploader && sessionUser.role !== "Super Admin" && sessionUser.role !== "Admin") {
+          return NextResponse.json(
+            { error: "คุณไม่มีสิทธิ์ลบไฟล์ในโฟลเดอร์นี้" },
+            { status: 403 }
+          );
         }
       }
+    }
 
+    // 2. Permanent Delete (if requested or already inside trash)
+    if (permanent || isAlreadyInTrash) {
       const filePath = path.join(process.cwd(), "public", "uploads", file.filename);
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
         } catch {}
       }
-
       await db.execute("DELETE FROM files WHERE id = ?", [id]);
+      return NextResponse.json({ success: true, deletedId: id, permanent: true });
     }
 
-    return NextResponse.json({ success: true, deletedId: id });
+    // 3. Soft Delete -> Move to Recycle Bin
+    await db.execute(
+      "UPDATE files SET is_trash = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [id]
+    );
+
+    return NextResponse.json({ success: true, deletedId: id, inTrash: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

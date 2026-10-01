@@ -17,12 +17,14 @@ import {
   Layers,
   Maximize2,
   Minimize2,
+  Settings,
 } from "lucide-react";
 import { useWindowManager } from "../context/WindowManagerContext";
 import { useAuth } from "../context/AuthContext";
 import { getModuleById } from "../registry/module-registry";
 import { formatCustomDateTime } from "../lib/dateFormat";
 import { DynamicIcon } from "./IconResolver";
+import { NotificationCenter } from "./NotificationCenter";
 
 export function TopMenuBar() {
   const {
@@ -42,12 +44,14 @@ export function TopMenuBar() {
     isFullscreen,
     toggleFullscreen,
   } = useWindowManager();
-  const { user, logout } = useAuth();
+  const { user, logout, lock } = useAuth();
 
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
   const [showCoreMenu, setShowCoreMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
     const updateDateTime = () => {
@@ -141,6 +145,31 @@ export function TopMenuBar() {
           <Search className="w-3.5 h-3.5" />
         </button>
 
+        {/* Notification Center Button */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className={`cursor-pointer p-1.5 rounded-lg transition-colors relative flex items-center justify-center ${
+              showNotifications
+                ? "bg-indigo-500/25 text-indigo-300 border border-indigo-500/40"
+                : "hover:bg-white/10 text-slate-300 hover:text-white"
+            }`}
+            title="ศูนย์การแจ้งเตือน (Notifications)"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+                {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+              </span>
+            )}
+          </button>
+          <NotificationCenter
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            onUnreadCountChange={setUnreadNotificationsCount}
+          />
+        </div>
+
         {/* Synology Widgets Toggle Button */}
         <button
           onClick={toggleWidgets}
@@ -213,6 +242,7 @@ export function TopMenuBar() {
               <img
                 src={user.avatar}
                 alt={user.name}
+                referrerPolicy="no-referrer"
                 className="w-5 h-5 rounded-full object-cover border border-white/30"
               />
               <span className="text-[11px] text-slate-200 max-w-[90px] truncate hidden md:inline">
@@ -231,6 +261,7 @@ export function TopMenuBar() {
                     <img
                       src={user.avatar}
                       alt={user.name}
+                      referrerPolicy="no-referrer"
                       className="w-10 h-10 rounded-full object-cover border border-cyan-400/40"
                     />
                     <div className="min-w-0">
@@ -249,12 +280,38 @@ export function TopMenuBar() {
                   <button
                     onClick={() => {
                       openApp("settings");
+                      window.dispatchEvent(
+                        new CustomEvent("dcms-open-settings-tab", { detail: "profile" })
+                      );
                       setShowUserMenu(false);
                     }}
-                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/10 text-slate-300 flex items-center gap-2 mb-1"
+                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/10 text-slate-300 flex items-center gap-2 mb-1 transition-colors"
                   >
-                    <UserIcon className="w-3.5 h-3.5" />
+                    <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>โปรไฟล์ส่วนตัว & รหัสผ่าน</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      openApp("settings");
+                      setShowUserMenu(false);
+                    }}
+                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-white/10 text-slate-300 flex items-center gap-2 mb-1 transition-colors"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
                     <span>การตั้งค่าระบบ (Settings)</span>
+                  </button>
+
+                  {/* Lock Screen Action */}
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      lock();
+                    }}
+                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-indigo-500/20 text-indigo-300 flex items-center gap-2 mb-1 transition-colors"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>ล็อกหน้าจอ (Lock Screen)</span>
                   </button>
 
                   <button
@@ -262,7 +319,7 @@ export function TopMenuBar() {
                       logout();
                       setShowUserMenu(false);
                     }}
-                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-rose-500/20 text-rose-300 flex items-center gap-2"
+                    className="cursor-pointer w-full text-left px-3 py-1.5 rounded-lg hover:bg-rose-500/20 text-rose-300 flex items-center gap-2 transition-colors"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>ออกจากระบบ (Log Out)</span>

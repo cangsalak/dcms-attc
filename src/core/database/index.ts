@@ -276,6 +276,55 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
     );
   } catch {}
 
+  // 6. Notifications table for System Notification Center
+  const createNotificationsSql = `CREATE TABLE IF NOT EXISTS notifications (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),
+    type VARCHAR(32) DEFAULT 'info',
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    link VARCHAR(255),
+    is_read BOOLEAN DEFAULT false,
+    created_at ${isPostgres ? "TIMESTAMPTZ DEFAULT NOW()" : "DATETIME DEFAULT CURRENT_TIMESTAMP"}
+  );`;
+  await db.execute(createNotificationsSql);
+
+  // Migration: Soft delete & Recycle bin columns for files and folders
+  try {
+    await db.execute("ALTER TABLE files ADD COLUMN is_trash BOOLEAN DEFAULT false");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE files ADD COLUMN deleted_at DATETIME");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN is_trash BOOLEAN DEFAULT false");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE folders ADD COLUMN deleted_at DATETIME");
+  } catch {}
+
+  // Seed initial welcome notification if notifications table is empty
+  try {
+    const countNotif = await db.query<{ count: number | string }>(
+      `SELECT COUNT(*) as count FROM notifications`
+    );
+    if (Number(countNotif[0]?.count || 0) === 0) {
+      await db.execute(
+        `INSERT INTO notifications (id, user_id, type, title, message, link, is_read)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          "notif-init-01",
+          null,
+          "info",
+          "ยินดีต้อนรับสู่ DCMS Core OS",
+          "ระบบปฏิบัติการ Web Desktop OS พร้อมใช้งาน เริ่มต้นใช้งาน File Station, Terminal หรือติดตั้งแอปพลิเคชันจาก App Store",
+          null,
+          false,
+        ]
+      );
+    }
+  } catch {}
+
   // Seed default admin user if empty
   const countUsers = await db.query<{ count: number | string }>(
     `SELECT COUNT(*) as count FROM users`

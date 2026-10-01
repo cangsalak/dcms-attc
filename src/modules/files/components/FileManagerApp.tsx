@@ -32,6 +32,7 @@ import {
   Settings2,
   CheckCircle2,
   MoreVertical,
+  RotateCcw,
 } from "lucide-react";
 import { FileRecord, FolderItem, FileCategory, FolderAccessType, FolderPermissionLevel } from "../types";
 import { useAuth } from "@/core/context/AuthContext";
@@ -308,18 +309,80 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
     }
   };
 
-  // Delete folder
-  const handleDeleteFolder = async (id: string, name: string) => {
-    if (!confirm(`คุณต้องการลบโฟลเดอร์ "${name}" และไฟล์ทั้งหมดข้างในหรือไม่?`)) return;
+  // Restore file
+  const handleRestoreFile = async (id: string) => {
+    try {
+      const res = await fetch("/api/upload", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "restore" }),
+      });
+      if (res.ok) {
+        setFiles((prev) => prev.filter((f) => f.id !== id));
+        if (selectedFileId === id) setSelectedFileId(null);
+      }
+    } catch (e) {
+      console.error("Restore file error:", e);
+    }
+  };
+
+  // Restore folder
+  const handleRestoreFolder = async (id: string) => {
+    try {
+      const res = await fetch("/api/folders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "restore" }),
+      });
+      if (res.ok) {
+        setFolders((prev) => prev.filter((f) => f.id !== id));
+        if (selectedFolderId === id) setSelectedFolderId(null);
+      }
+    } catch (e) {
+      console.error("Restore folder error:", e);
+    }
+  };
+
+  // Empty entire trash
+  const handleEmptyTrash = async () => {
+    if (
+      !confirm(
+        "คุณต้องการล้างไฟล์และโฟลเดอร์ทั้งหมดในถังขยะอย่างถาวรใช่หรือไม่? (การกระทำนี้ไม่สามารถย้อนกลับได้)"
+      )
+    ) {
+      return;
+    }
+    try {
+      await fetch("/api/upload?emptyTrash=true", { method: "DELETE" });
+      await fetch("/api/folders?emptyTrash=true", { method: "DELETE" });
+      setFiles([]);
+      setFolders([]);
+      setSelectedFileId(null);
+      setSelectedFolderId(null);
+    } catch (e) {
+      console.error("Empty trash error:", e);
+    }
+  };
+
+  // Delete folder (supports soft delete & permanent delete)
+  const handleDeleteFolder = async (id: string, name: string, forcePermanent = false) => {
+    const isTrash = currentFolderId === "trash" || forcePermanent;
+    const confirmMsg = isTrash
+      ? `คุณต้องการลบโฟลเดอร์ "${name}" และไฟล์ทั้งหมดข้างในอย่างถาวรหรือไม่?`
+      : `คุณต้องการย้ายโฟลเดอร์ "${name}" ไปยังถังขยะหรือไม่?`;
+
+    if (!confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch(`/api/folders?id=${id}`, { method: "DELETE" });
+      const url = isTrash ? `/api/folders?id=${id}&permanent=true` : `/api/folders?id=${id}`;
+      const res = await fetch(url, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
         alert(data.error || "ไม่สามารถลบโฟลเดอร์ได้");
         return;
       }
       setFolders((prev) => prev.filter((f) => f.id !== id));
+      setAllFolders((prev) => prev.filter((f) => f.id !== id));
       if (selectedFolderId === id) setSelectedFolderId(null);
 
       if (currentFolderId === id) {
@@ -340,8 +403,8 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
   const handleUploadFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
 
-    if (isReadOnlyCurrentFolder) {
-      alert("คุณไม่มีสิทธิ์อัปโหลดไฟล์ในโฟลเดอร์นี้ (สิทธิ์เปิดให้อ่านอย่างเดียว หรือไม่มีสิทธิ์เขียน)");
+    if (isReadOnlyCurrentFolder || currentFolderId === "trash") {
+      alert("ไม่สามารถอัปโหลดไฟล์ในตำแหน่งนี้ได้");
       return;
     }
 
@@ -377,12 +440,18 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
     }
   };
 
-  // Delete file
-  const handleDeleteFile = async (id: string, name: string) => {
-    if (!confirm(`คุณต้องการลบไฟล์ "${name}" หรือไม่?`)) return;
+  // Delete file (supports soft delete & permanent delete)
+  const handleDeleteFile = async (id: string, name: string, forcePermanent = false) => {
+    const isTrash = currentFolderId === "trash" || forcePermanent;
+    const confirmMsg = isTrash
+      ? `คุณต้องการลบไฟล์ "${name}" อย่างถาวรหรือไม่? (ไม่สามารถกู้คืนได้)`
+      : `คุณต้องการย้ายไฟล์ "${name}" ไปยังถังขยะหรือไม่?`;
+
+    if (!confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch(`/api/upload?id=${id}`, { method: "DELETE" });
+      const url = isTrash ? `/api/upload?id=${id}&permanent=true` : `/api/upload?id=${id}`;
+      const res = await fetch(url, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
         alert(data.error || "ไม่สามารถลบไฟล์ได้");
@@ -478,6 +547,22 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
 
     if (contextMenu.type === "folder") {
       const fld = contextMenu.item as FolderItem;
+      if (currentFolderId === "trash") {
+        return [
+          {
+            label: "กู้คืนโฟลเดอร์ (Restore)",
+            icon: RotateCcw,
+            onClick: () => handleRestoreFolder(fld.id),
+          },
+          { divider: true as const },
+          {
+            label: "ลบถาวร (Delete Permanently)",
+            icon: Trash2,
+            danger: true,
+            onClick: () => handleDeleteFolder(fld.id, fld.name, true),
+          },
+        ];
+      }
       return [
         {
           label: "เปิดโฟลเดอร์ (Open)",
@@ -499,6 +584,22 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
       ];
     } else {
       const file = contextMenu.item as FileRecord;
+      if (currentFolderId === "trash") {
+        return [
+          {
+            label: "กู้คืนไฟล์ (Restore)",
+            icon: RotateCcw,
+            onClick: () => handleRestoreFile(file.id),
+          },
+          { divider: true as const },
+          {
+            label: "ลบถาวร (Delete Permanently)",
+            icon: Trash2,
+            danger: true,
+            onClick: () => handleDeleteFile(file.id, file.originalName, true),
+          },
+        ];
+      }
       const isImg = file.mimeType.startsWith("image/");
       return [
         ...(isImg
@@ -569,38 +670,85 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
       {/* Standard Unified Module Toolbar */}
       <ModuleToolbar
         leftActions={
-          <>
+          currentFolderId === "trash" ? (
             <ModuleButton
-              variant="primary"
-              icon={UploadCloud}
-              disabled={isUploading || isReadOnlyCurrentFolder}
-              onClick={() => fileInputRef.current?.click()}
-              title={isReadOnlyCurrentFolder ? "โฟลเดอร์นี้เปิดให้อ่านอย่างเดียว" : "อัปโหลดไฟล์"}
+              variant="danger"
+              icon={Trash2}
+              onClick={handleEmptyTrash}
+              title="ล้างไฟล์และโฟลเดอร์ทั้งหมดในถังขยะอย่างถาวร"
             >
-              {isUploading ? uploadProgress || "กำลังอัปโหลด..." : "อัปโหลด (Upload)"}
+              ล้างถังขยะ (Empty Trash)
             </ModuleButton>
+          ) : (
+            <>
+              <ModuleButton
+                variant="primary"
+                icon={UploadCloud}
+                disabled={isUploading || isReadOnlyCurrentFolder}
+                onClick={() => fileInputRef.current?.click()}
+                title={isReadOnlyCurrentFolder ? "โฟลเดอร์นี้เปิดให้อ่านอย่างเดียว" : "อัปโหลดไฟล์"}
+              >
+                {isUploading ? uploadProgress || "กำลังอัปโหลด..." : "อัปโหลด (Upload)"}
+              </ModuleButton>
 
-            <ModuleButton
-              variant="secondary"
-              icon={FolderPlus}
-              disabled={isReadOnlyCurrentFolder}
-              onClick={() => {
-                setFolderError(null);
-                setNewFolderName("");
-                setNewFolderAccessType("public");
-                setNewFolderAllowedRoles(AVAILABLE_ROLES);
-                setNewFolderDept(user?.department || "");
-                setNewFolderPermLevel("read_write");
-                setShowFolderModal(true);
-              }}
-              title={isReadOnlyCurrentFolder ? "โฟลเดอร์นี้เปิดให้อ่านอย่างเดียว" : "สร้างโฟลเดอร์ใหม่"}
-            >
-              สร้างโฟลเดอร์
-            </ModuleButton>
-          </>
+              <ModuleButton
+                variant="secondary"
+                icon={FolderPlus}
+                disabled={isReadOnlyCurrentFolder}
+                onClick={() => {
+                  setFolderError(null);
+                  setNewFolderName("");
+                  setNewFolderAccessType("public");
+                  setNewFolderAllowedRoles(AVAILABLE_ROLES);
+                  setNewFolderDept(user?.department || "");
+                  setNewFolderPermLevel("read_write");
+                  setShowFolderModal(true);
+                }}
+                title={isReadOnlyCurrentFolder ? "โฟลเดอร์นี้เปิดให้อ่านอย่างเดียว" : "สร้างโฟลเดอร์ใหม่"}
+              >
+                สร้างโฟลเดอร์
+              </ModuleButton>
+            </>
+          )
         }
         selectedActions={
-          selectedFolder ? (
+          currentFolderId === "trash" ? (
+            selectedFolder ? (
+              <>
+                <ModuleButton
+                  variant="primary"
+                  icon={RotateCcw}
+                  onClick={() => handleRestoreFolder(selectedFolder.id)}
+                >
+                  กู้คืนโฟลเดอร์
+                </ModuleButton>
+                <ModuleButton
+                  variant="danger"
+                  icon={Trash2}
+                  onClick={() => handleDeleteFolder(selectedFolder.id, selectedFolder.name, true)}
+                >
+                  ลบถาวร
+                </ModuleButton>
+              </>
+            ) : selectedFile ? (
+              <>
+                <ModuleButton
+                  variant="primary"
+                  icon={RotateCcw}
+                  onClick={() => handleRestoreFile(selectedFile.id)}
+                >
+                  กู้คืนไฟล์
+                </ModuleButton>
+                <ModuleButton
+                  variant="danger"
+                  icon={Trash2}
+                  onClick={() => handleDeleteFile(selectedFile.id, selectedFile.originalName, true)}
+                >
+                  ลบถาวร
+                </ModuleButton>
+              </>
+            ) : null
+          ) : selectedFolder ? (
             <>
               <ModuleButton
                 variant="secondary"
@@ -840,6 +988,27 @@ export function FileManagerApp({ windowId }: { windowId: string }) {
           >
             <FileArchive className="w-4 h-4 text-amber-400" />
             <span>ไฟล์บีบอัด (Archives)</span>
+          </button>
+
+          {/* Recycle Bin (ถังขยะ) */}
+          <button
+            onClick={() => {
+              setCurrentFolderId("trash");
+              setBreadcrumbs([{ id: "trash", name: "ถังขยะ (Recycle Bin)" }]);
+              setCategory("all");
+              setSelectedFileId(null);
+              setSelectedFolderId(null);
+            }}
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
+              currentFolderId === "trash"
+                ? "bg-rose-600/30 text-white border border-rose-500/40 shadow"
+                : "text-slate-400 hover:text-rose-300 hover:bg-white/5"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>ถังขยะ (Recycle Bin)</span>
+            </div>
           </button>
 
           <div className="border-t border-white/10 my-2" />
