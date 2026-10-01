@@ -7,7 +7,7 @@ export const usersModule: AppModule = {
   nameTh: "จัดการผู้ใช้งาน",
   description: "ระบบจัดการผู้ใช้งาน สิทธิ์การเข้าถึง และฝ่ายงานต่างๆ ภายในองค์กร",
   version: "1.0.0",
-  category: "business",
+  category: "system",
   iconName: "users",
   colorGradient: "from-blue-600 to-indigo-600",
   defaultSize: {
@@ -19,7 +19,7 @@ export const usersModule: AppModule = {
     height: 450,
   },
   enabled: true,
-  isSystemApp: false,
+  isSystemApp: true,
   desktopShortcut: true,
   dockShortcut: true,
   component: UsersApp,

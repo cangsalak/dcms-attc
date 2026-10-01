@@ -18,6 +18,7 @@ export async function GET() {
         description, 
         installed_at as "installedAt" 
        FROM installed_modules 
+       WHERE id NOT IN ('terminal', 'users', 'files', 'settings', 'app-store')
        ORDER BY installed_at ASC`
     );
     return NextResponse.json({ modules: rows });
@@ -145,6 +146,14 @@ export async function DELETE(req: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "Missing module id" }, { status: 400 });
+    }
+
+    const CORE_IDS = ["terminal", "users", "files", "settings", "app-store"];
+    if (CORE_IDS.includes(id)) {
+      return NextResponse.json(
+        { error: "ไม่สามารถถอนการติดตั้งโมดูลหลักของระบบได้ (Core System Module)" },
+        { status: 400 }
+      );
     }
 
     const db = await ensureDatabaseReady();

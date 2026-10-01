@@ -93,20 +93,6 @@ const fallbackDefaultApps: MarketplaceApp[] = [
     entryType: "internal",
     rating: 4.7,
   },
-  {
-    id: "terminal",
-    name: "System Terminal",
-    nameTh: "เทอร์มินัลจัดการระบบ",
-    description: "คอนโซลคอมมานด์ไลน์และเชลล์อินเตอร์แอคทีฟสำหรับตรวจสอบสถานะ Node.js, PM2 และฐานข้อมูล",
-    version: "0.9.4",
-    category: "tools",
-    iconName: "terminal",
-    colorGradient: "from-slate-700 to-zinc-900",
-    author: "SysOps",
-    size: "1.5 MB",
-    entryType: "internal",
-    rating: 5.0,
-  },
 ];
 
 const availableIcons = [
@@ -296,17 +282,21 @@ export function AppStoreApp({ windowId }: { windowId: string }) {
     }
   };
 
-  const filteredMarketplace = marketplaceApps.filter((app) => {
-    const matchesCategory =
-      categoryFilter === "all" ||
-      (categoryFilter === "external" && app.entryType === "external_url") ||
-      app.category === categoryFilter;
-    const matchesSearch =
-      app.name.toLowerCase().includes(search.toLowerCase()) ||
-      (app.nameTh && app.nameTh.toLowerCase().includes(search.toLowerCase())) ||
-      app.description.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const CORE_MODULE_IDS = new Set(["files", "users", "terminal", "settings", "app-store"]);
+
+  const filteredMarketplace = marketplaceApps
+    .filter((app) => !CORE_MODULE_IDS.has(app.id))
+    .filter((app) => {
+      const matchesCategory =
+        categoryFilter === "all" ||
+        (categoryFilter === "external" && app.entryType === "external_url") ||
+        app.category === categoryFilter;
+      const matchesSearch =
+        app.name.toLowerCase().includes(search.toLowerCase()) ||
+        (app.nameTh && app.nameTh.toLowerCase().includes(search.toLowerCase())) ||
+        app.description.toLowerCase().includes(search.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
 
   return (
     <ModuleContainer>

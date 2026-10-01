@@ -4,16 +4,18 @@ import { usersModule } from "@/modules/users/module.config";
 import { appStoreModule } from "@/modules/app-store/module.config";
 import { settingsModule } from "@/modules/settings/module.config";
 import { filesModule } from "@/modules/files/module.config";
+import { terminalModule } from "@/modules/terminal/module.config";
 import { ExternalAppRunner } from "../components/ExternalAppRunner";
 import { internalExtensionModulesMap } from "@/modules";
 
 /**
- * Built-in Core System Modules (Mandatory OS System Apps)
+ * Built-in Core System Modules (Mandatory OS System Apps - Default & No install needed)
  */
 export const defaultModules: AppModule[] = [
-  appStoreModule,
-  usersModule,
   filesModule,
+  usersModule,
+  terminalModule,
+  appStoreModule,
   settingsModule,
 ];
 

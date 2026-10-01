@@ -13,7 +13,6 @@ export const internalExtensionModules: AppModule[] = [
   inventoryModule,
   billingModule,
   auditLogsModule,
-  terminalModule,
 ];
 
 export const internalExtensionModulesMap: Record<string, AppModule> = {

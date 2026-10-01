@@ -22,6 +22,7 @@ export async function GET() {
         rating,
         created_at as "createdAt"
        FROM marketplace_modules 
+       WHERE id NOT IN ('terminal', 'users', 'files', 'settings', 'app-store')
        ORDER BY created_at ASC`
     );
     return NextResponse.json({ apps: rows });
@@ -55,6 +56,14 @@ export async function POST(req: Request) {
       entryType = "external_url",
       url = "",
     } = body;
+
+    const CORE_IDS = ["terminal", "users", "files", "settings", "app-store"];
+    if (CORE_IDS.includes(id)) {
+      return NextResponse.json(
+        { error: "ไม่สามารถใช้ ID เดียวกับโมดูลหลักของระบบได้ (Core Module)" },
+        { status: 400 }
+      );
+    }
 
     if (!name || (!url && entryType === "external_url")) {
       return NextResponse.json(

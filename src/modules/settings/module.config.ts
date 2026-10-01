@@ -5,7 +5,7 @@ export const settingsModule: AppModule = {
   id: "settings",
   name: "Settings",
   nameTh: "การตั้งค่าระบบ",
-  description: "ปรับแต่งภาพพื้นหลัง ธีม และตรวจสอบสถานะระบบ Docker",
+  description: "ปรับแต่งภาพพื้นหลัง ธีม วันที่และเวลา และการตั้งค่าพื้นฐานของระบบ DCMS",
   version: "1.0.0",
   category: "system",
   iconName: "settings",

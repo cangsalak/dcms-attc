@@ -240,21 +240,6 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
         url: "",
         rating: 4.7,
       },
-      {
-        id: "terminal",
-        name: "System Terminal",
-        name_th: "เทอร์มินัลจัดการระบบ",
-        description: "คอนโซลคอมมานด์ไลน์และเชลล์อินเตอร์แอคทีฟสำหรับตรวจสอบสถานะ Node.js, PM2 และฐานข้อมูล",
-        version: "0.9.4",
-        category: "tools",
-        icon_name: "terminal",
-        color_gradient: "from-slate-700 to-zinc-900",
-        author: "SysOps",
-        size_str: "1.5 MB",
-        entry_type: "internal",
-        url: "",
-        rating: 5.0,
-      },
     ];
 
     for (const app of defaultApps) {
@@ -280,6 +265,16 @@ export async function ensureDatabaseReady(): Promise<DatabaseAdapter> {
       );
     }
   }
+
+  // Ensure core modules (terminal, users, files, settings, app-store) are never treated as installable marketplace items
+  try {
+    await db.execute(
+      "DELETE FROM marketplace_modules WHERE id IN ('terminal', 'users', 'files', 'settings', 'app-store')"
+    );
+    await db.execute(
+      "DELETE FROM installed_modules WHERE id IN ('terminal', 'users', 'files', 'settings', 'app-store')"
+    );
+  } catch {}
 
   // Seed default admin user if empty
   const countUsers = await db.query<{ count: number | string }>(
